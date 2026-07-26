@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>対戦成績 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <nav>
+    <a class="nav-btn" href="index.html">選手一覧</a>
+    <a class="nav-btn" href="ranking.html">ランキング</a>
+    <a class="nav-btn active" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="compare.html">比較</a>
+    <a class="nav-btn" href="beyond.html">BEYOND</a>
+  </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// このページは「PS公式戦の対戦成績」まわりを1つにまとめたページ。以前は「試合結果」
+// （通算成績リーダーボード・個人の対戦履歴）と「節別詳細」（svlabo.jp由来の節ごとの詳細・
+// 配信リンク）で別々のナビ項目に分かれていたが、名前も内容も紛らわしかったため統合した。
+// - ?name=選手名 が付いていれば、その選手の個人成績（対戦履歴・配信リンク）を表示
+// - それ以外は「通算成績」(全選手リーダーボード) か「節別に見る」(節ごとの詳細) を
+//   ページ内のボタンで切り替えられる
+async function boot() {
+  const app = document.getElementById("app");
+  const params = new URLSearchParams(location.search);
+  const name = params.get("name");
+
+  let data, matches, battleDetails;
+  try {
+    [data, matches, battleDetails] = await Promise.all([loadData(), loadMatches(), loadBattleDetails()]);
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  const { players, images } = data;
+
+  if (name) {
+    renderPlayerMatches(app, players, images, matches, battleDetails, name);
+    return;
+  }
+
+  if (!matches.length && !battleDetails.length) {
+    app.innerHTML = `<div class="empty-note">まだ対戦データがありません</div>`;
+    return;
+  }
+
+  const initialMode = params.get("view") === "sections" ? "sections" : "leaderboard";
+  renderModeSwitcher(app, players, images, matches, battleDetails, initialMode);
+}
+
+function renderModeSwitcher(app, players, images, matches, battleDetails, mode) {
+  app.innerHTML = `
+    <div class="team-select-row" style="margin-bottom:14px;">
+      <button class="team-select-btn ${mode === "leaderboard" ? "active" : ""}" id="modeLeaderboardBtn"
+        style="${mode === "leaderboard" ? "background:var(--accent);" : ""}">通算成績</button>
+      <button class="team-select-btn ${mode === "sections" ? "active" : ""}" id="modeSectionsBtn"
+        style="${mode === "sections" ? "background:var(--accent);" : ""}">節別に見る</button>
+    </div>
+    <div id="modeContent"></div>
+  `;
+  document.getElementById("modeLeaderboardBtn").addEventListener("click", () => renderModeSwitcher(app, players, images, matches, battleDetails, "leaderboard"));
+  document.getElementById("modeSectionsBtn").addEventListener("click", () => renderModeSwitcher(app, players, images, matches, battleDetails, "sections"));
+
+  const content = document.getElementById("modeContent");
+  if (mode === "sections") {
+    renderSectionsView(content, battleDetails);
+  } else {
+    renderLeaderboard(content, players, images, matches);
+  }
+}
+
+// 勝敗数(戦績)は1勝=1ptなので、獲得ポイントは戦績と完全に重複する情報として列自体を削除している。
+// 各列見出しはクリックでソートできる（compare.htmlの「表で比較」と同じ考え方）。
+let leaderboardSort = { key: "wins", dir: "desc" };
+const LEADERBOARD_COLUMNS = [
+  { key: "team", label: "チーム", defaultDir: "asc", sortValue: r => r.player.team_tag || "" },
+  { key: "name", label: "選手", defaultDir: "asc", sortValue: r => r.player.player_name || "" },
+  { key: "wins", label: "戦績", defaultDir: "desc", sortValue: r => r.stats.wins },
+  { key: "winRate", label: "勝率", defaultDir: "desc", sortValue: r => r.stats.winRate ?? -1 },
+];
+
+function renderLeaderboard(container, players, images, matches) {
+  if (!matches.length) {
+    container.innerHTML = `<div class="empty-note">まだPS公式戦の試合結果がありません</div>`;
+    return;
+  }
+  const all = players.map(p => ({ player: p, stats: summarizeMatches(matches, p.player_name) }));
+
+  function draw() {
+    const col = LEADERBOARD_COLUMNS.find(c => c.key === leaderboardSort.key);
+    const played = all.filter(r => r.stats.played > 0).slice().sort((a, b) => {
+      const av = col.sortValue(a), bv = col.sortValue(b);
+      const cmp = typeof av === "string" ? av.localeCompare(bv, "ja") : av - bv;
+      return leaderboardSort.dir === "asc" ? cmp : -cmp;
+    });
+    const unplayed = all.filter(r => r.stats.played === 0);
+    const rows = played.concat(unplayed);
+
+    // メダル色は「戦績が良い順」の並びの時だけ意味を持つので、それ以外の列でソートしている間は付けない
+    const isRankOrder = leaderboardSort.key === "wins" && leaderboardSort.dir === "desc";
+    const medal = ["gold", "silver", "bronze"];
+    const body = rows.map((r, i) => {
+      const { player, stats } = r;
+      const isPlayed = stats.played > 0;
+      const rankClass = isPlayed && isRankOrder ? (medal[i] || "") : "";
+      return `
+        <tr>
+          <td><span class="rank-num ${rankClass}">${isPlayed ? i + 1 : "-"}</span></td>
+          <td>${teamLogoHTML(player.team_tag, 22)}</td>
+          <td>
+            <a class="player-link" href="rounds.html?name=${encodeURIComponent(player.player_name)}">
+              ${avatarHTML(player, images, 28)}
+              ${player.player_name}
+            </a>
+          </td>
+          <td>${stats.wins}勝${stats.losses}敗</td>
+          <td>${isPlayed ? (stats.winRate * 100).toFixed(0) + "%" : "-"}</td>
+        </tr>`;
+    }).join("");
+
+    const thead = LEADERBOARD_COLUMNS.map(c => {
+      const active = c.key === leaderboardSort.key;
+      const arrow = active ? (leaderboardSort.dir === "asc" ? "▲" : "▼") : "";
+      return `<th class="sortable ${active ? "active" : ""}" data-key="${c.key}">${c.label}<span class="sort-arrow">${arrow}</span></th>`;
+    }).join("");
+
+    container.innerHTML = `
+      <table class="rank-table">
+        <thead><tr><th>#</th>${thead}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    `;
+    container.querySelectorAll("th.sortable").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.key;
+        const c = LEADERBOARD_COLUMNS.find(x => x.key === key);
+        if (leaderboardSort.key === key) leaderboardSort.dir = leaderboardSort.dir === "asc" ? "desc" : "asc";
+        else leaderboardSort = { key, dir: c.defaultDir };
+        draw();
+      });
+    });
+  }
+  draw();
+}
+
+function renderPlayerMatches(app, players, images, matches, battleDetails, name) {
+  const player = players.find(p => p.player_name === name);
+  if (!player) {
+    app.innerHTML = `<a class="back-link" href="rounds.html">通算成績に戻る</a><div class="empty-note">選手が見つかりません</div>`;
+    return;
+  }
+
+  const rows = matches.filter(m => m.player_name === name).slice().sort((a, b) => a.round < b.round ? -1 : 1);
+  const stats = summarizeMatches(matches, name);
+
+  // 全試合は必ずどこかの節に属している（match_results.csvのround列＝試合日時は全行に必ず
+  // 入っている）ので、節番号が「-」になることは無い。まずはbattle_details.csv（svlabo.jp由来）
+  // の実際のsection値を突き合わせて使い、まだsvlabo.jpの記事が出ていない節はround（試合日時）の
+  // 登場順から節番号を組み立てる（同じ日付＝同じ節。全選手・全試合を通じた日付の早い順で採番する
+  // ので、battle_details.csvの番号ともズレない）。
+  const sectionDatesInOrder = [...new Set(matches.map(m => (String(m.round).match(/^\d{4}\.\d{2}\.\d{2}/) || [m.round])[0]))].sort();
+  function sectionNumberFor(round) {
+    const d = (String(round).match(/^\d{4}\.\d{2}\.\d{2}/) || [round])[0];
+    const idx = sectionDatesInOrder.indexOf(d);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  // match_results.csv(公式サイト由来)とbattle_details.csv(svlabo.jp由来)は採番方式が別なので
+  // チーム対戦カード+選手名で突き合わせる（findBattleDetail()参照）。見つかれば「使用したが
+  // 登録していなかった他のクラス」も併せて表示し、配信の該当タイムスタンプへのリンクを出す。
+  // 見つからない場合（まだsvlabo.jpの記事が出ていない節など）は、これまで通り使用クラスの
+  // アイコン単体・配信リンク無しで表示する（節番号自体はround日時から必ず出せる）。
+  const body = rows.map(r => {
+    const detail = findBattleDetail(battleDetails, r.team_tag, r.player_name, r.opponent_team_tag);
+    const classCell = detail ? classPoolHTML(detail.pool, detail.used, 18) : `<span class="vs-cell">${classIconHTML(r.class)}</span>`;
+    const section = (detail && detail.section) || sectionNumberFor(r.round);
+    return `
+    <tr>
+      <td>第${section}節</td>
+      <td>${classCell}</td>
+      <td>
+        <span class="vs-cell">
+          ${teamLogoHTML(r.opponent_team_tag, 18)}
+          <a href="player.html?name=${encodeURIComponent(r.opponent_name)}">${r.opponent_name || "-"}</a>
+          ${classIconHTML(r.opponent_class)}
+        </span>
+      </td>
+      <td><span class="result-badge ${r.result === 'WIN' ? 'win' : 'lose'}">${r.result === 'WIN' ? '勝ち' : '負け'}</span></td>
+      <td>${detail && detail.video_url ? `<a href="${detail.video_url}" target="_blank" rel="noopener" style="font-size:12px;">配信</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+
+  app.innerHTML = `
+    <a class="back-link" href="rounds.html">通算成績に戻る</a>
+    <div class="detail-header">
+      ${avatarHTML(player, images, 56)}
+      <div class="info">
+        <h2 style="font-size:20px;">${player.player_name}</h2>
+        ${teamLogoHTML(player.team_tag, 24)}
+      </div>
+    </div>
+    <div class="quick-stats">
+      <div class="quick-stat"><div class="label">戦績</div><div class="value">${stats.wins}勝${stats.losses}敗</div></div>
+      <div class="quick-stat"><div class="label">勝率</div><div class="value">${stats.played ? (stats.winRate * 100).toFixed(0) + "%" : "-"}</div></div>
+    </div>
+    <table class="rank-table">
+      <thead><tr><th>節</th><th>使用クラス</th><th>対戦相手</th><th>結果</th><th>配信</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  `;
+}
+
+// --- 節別に見る（svlabo.jpの節別記事から取り込んだ、ROUND/BATTLEごとの使用/未使用クラス・配信URL） ---
+
+function battleRowHTML(b) {
+  const t1win = b.winlose === "WIN";
+  return `
+    <tr>
+      <td>
+        BATTLE${b.battle_no}
+        <div style="font-size:10px;color:var(--text-muted);">${b.team1}側:${b.fise}</div>
+      </td>
+      <td>
+        <div>${b.player1}</div>
+        ${classPoolHTML(b.class1_pool, b.class1_used, 18)}
+      </td>
+      <td style="text-align:center;color:var(--text-muted);font-size:11px;">vs</td>
+      <td>
+        <div>${b.player2}</div>
+        ${classPoolHTML(b.class2_pool, b.class2_used, 18)}
+      </td>
+      <td>
+        <span class="result-badge ${t1win ? "win" : "lose"}">${b.team1} ${t1win ? "勝ち" : "負け"}</span>
+      </td>
+      <td>${b.video_url ? `<a href="${b.video_url}" target="_blank" rel="noopener" style="font-size:12px;">配信</a>` : "-"}</td>
+    </tr>`;
+}
+
+function renderSectionsView(container, battleDetails) {
+  if (!battleDetails.length) {
+    container.innerHTML = `<div class="empty-note">まだ節別詳細のデータがありません</div>`;
+    return;
+  }
+  const sections = [...new Set(battleDetails.map(b => b.section))].sort((a, b) => a - b);
+  container.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label>節</label>
+        <select id="sectionSelect">${sections.map(s => `<option value="${s}">${s}節</option>`).join("")}</select>
+      </div>
+    </div>
+    <div id="roundsWrap"></div>
+  `;
+  const sel = container.querySelector("#sectionSelect");
+  sel.addEventListener("change", () => renderSection(container, battleDetails, sel.value));
+  renderSection(container, battleDetails, sel.value);
+}
+
+function renderSection(container, battleDetails, section) {
+  const rows = battleDetails.filter(b => b.section === section);
+
+  // half+round_noでグルーピングしつつ、元の並び順（前半戦R1→前半戦R2→後半戦R1→後半戦R2）を保つ
+  const groups = {};
+  const order = [];
+  rows.forEach(b => {
+    const key = b.half + "|" + b.round_no;
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(b);
+  });
+
+  const html = order.map(key => {
+    const list = groups[key];
+    const first = list[0];
+    const body = list.map(battleRowHTML).join("");
+    return `
+      <div class="chart-box" style="margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+          <span style="font-weight:700; font-size:13px; color:var(--text-muted);">${first.half} ROUND ${first.round_no}</span>
+          <span style="flex:1;"></span>
+          ${teamLogoHTML(first.team1, 26)}
+          <span style="font-size:13px; font-weight:600;">${first.team1}</span>
+          <span style="color:var(--text-muted); font-size:12px;">vs</span>
+          ${teamLogoHTML(first.team2, 26)}
+          <span style="font-size:13px; font-weight:600;">${first.team2}</span>
+        </div>
+        <table class="rank-table">
+          <thead><tr><th>BATTLE</th><th>${first.team1}側</th><th></th><th>${first.team2}側</th><th>結果</th><th>配信</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }).join("");
+
+  container.querySelector("#roundsWrap").innerHTML = html;
+}
+
+boot();
+</script>
+</body>
+</html>

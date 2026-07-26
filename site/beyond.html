@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BEYOND | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <nav>
+    <a class="nav-btn" href="index.html">選手一覧</a>
+    <a class="nav-btn" href="ranking.html">ランキング</a>
+    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="compare.html">比較</a>
+    <a class="nav-btn active" href="beyond.html">BEYOND</a>
+  </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// svlabo.jpから一括取得したランクマッチ(Worlds Beyond)の全ユーザーリーダーボード
+// （data/svlabo_leaderboards.csv）を閲覧するページ。PS出場選手・アマチュアを区別せず、
+// 掲載されている全ユーザーを対象にする。タブは2つだけ:
+// - 「レート」: svlabo本家と同じ期間×クラスの順位（クラスは「すべて」を選べば
+//   全クラス合算の最高レートTOP100になる）
+// - 「TOP N入り回数」: 全期間・全クラスを通じて「順位がN位以内だった回数」を数えた
+//   累計ランキング（ranking.html/compare.htmlのCR順位TOP N入り回数と同じ考え方だが、
+//   そちらはPS出場選手37人限定。ここではsvlaboに載っている全ユーザーが対象）
+// 選手検索を使っている間は、期間・クラスの絞り込みを無視して全期間×全クラスを
+// 横断的に検索する（特定の選手を探したいだけなのに期間とクラスを両方合わせないと
+// 見つからないのは不便なため）。この横断検索は「レート」タブの時だけ意味を持つ
+// （「TOP N入り回数」はもともと全期間・全クラス集計なので検索は単純に名前で絞るだけでよい）。
+// （チームでの絞り込みは役に立たなかったため廃止した。選手検索だけで十分。）
+let svlabo = [], playerLookup = {};
+let boardMode = "rating";
+const filters = { period: null, class: "", threshold: 100, query: "" };
+
+function playerNameCellHTML(rawName) {
+  const p = lookupPlayer(playerLookup, rawName);
+  if (p) return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${rawName}</a>`;
+  return rawName;
+}
+
+// チームに所属していないのはこの一覧では普通のこと（PS選手の方が少数派）なので、
+// 「無所属」と目立つ文言を出さず、単に薄いダッシュにする。
+function teamCellHTML(rawTag) {
+  const tag = resolveTeamTag(rawTag);
+  if (!tag) return `<span style="color:var(--text-muted);">-</span>`;
+  return teamLogoHTML(tag, 20);
+}
+
+// svlabo全体を通して選手を1人1行に重複除去した一覧（名前を正規化して同一人物とみなす）。
+// ファイル内の出現順は新しい期間が先頭なので、最初に見つかった行＝直近の所属チームを採用する。
+function uniqueSvlaboPlayers(list) {
+  const seen = new Set();
+  const out = [];
+  list.forEach(r => {
+    const key = normalizeName(r.player_name);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ team_tag: r.team_tag, player_name: r.player_name });
+  });
+  return out;
+}
+
+function applySearch(rows, query) {
+  if (!query.trim()) return rows;
+  const q = normalizeName(query);
+  return rows.filter(r => normalizeName(r.player_name).includes(q));
+}
+
+// 上位を薄く色分けするための行クラス（1位・2位・3位はそれぞれ金銀銅で、4〜10位はまとめて軽くハイライトする）。
+function rankRowClass(rank) {
+  if (rank == null) return "";
+  if (rank === 1) return "rank-row-1";
+  if (rank === 2) return "rank-row-2";
+  if (rank === 3) return "rank-row-3";
+  if (rank <= 10) return "rank-row-top10";
+  return "";
+}
+
+// 選手検索モード: 期間・クラス・指標の絞り込みを無視して、名前が一致する行を
+// 全期間×全クラス横断でそのまま列挙する（svlaboの生データをそのまま見せる）。
+function renderSearchResults(container) {
+  const q = normalizeName(filters.query);
+  const rows = svlabo.filter(r => normalizeName(r.player_name).includes(q));
+
+  const body = rows.map(r => `
+    <tr class="${rankRowClass(parseInt(r.rank, 10))}">
+      <td>${escapeAttr(r.period)}</td>
+      <td>${classIconHTML(r.class, 20)}</td>
+      <td class="rank-value">${r.rank}位</td>
+      <td>${teamCellHTML(r.team_tag)}</td>
+      <td>${playerNameCellHTML(r.player_name)}</td>
+      <td class="rank-value">${fmtNum(r.rating)}</td>
+    </tr>`).join("");
+
+  container.innerHTML = rows.length ? `
+    <table class="rank-table">
+      <thead><tr><th>期間</th><th>クラス</th><th>順位</th><th>チーム</th><th>選手</th><th>レート</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+}
+
+function renderRatingTab(container, svlaboPeriods, classes) {
+  container.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label>期間</label>
+        <select id="periodSelect">${svlaboPeriods.map(p => `<option value="${escapeAttr(p)}">${p}</option>`).join("")}</select>
+      </div>
+      <div class="control-group">
+        <label>クラス</label>
+        <select id="classSelect">
+          <option value="">すべて</option>
+          ${classes.map(c => `<option value="${escapeAttr(c)}">${c}</option>`).join("")}
+        </select>
+      </div>
+      <div class="control-group">
+        <label>選手検索</label>
+        <input type="text" id="querySelect" placeholder="選手名で検索">
+      </div>
+    </div>
+    <div id="tableWrap"></div>
+  `;
+  const periodSelect = container.querySelector("#periodSelect");
+  const classSelect = container.querySelector("#classSelect");
+  const querySelect = container.querySelector("#querySelect");
+  periodSelect.value = filters.period;
+  classSelect.value = filters.class;
+  querySelect.value = filters.query;
+
+  function draw() {
+    filters.period = periodSelect.value;
+    filters.class = classSelect.value;
+    filters.query = querySelect.value;
+
+    const tableWrap = container.querySelector("#tableWrap");
+
+    // 選手検索中は、期間・クラスの絞り込みを無視して全期間×全クラス横断で結果を出す
+    // （特定の選手を探したいだけなのに期間とクラスを両方合わせないと見つからないのは不便なため）。
+    if (filters.query.trim()) {
+      renderSearchResults(tableWrap);
+      return;
+    }
+
+    const isAllClasses = filters.class === "";
+    let rows;
+    if (isAllClasses) {
+      // 「全クラス合算」＝7クラス分のperiodごとのリーダーボードを1つに merge しただけのもの。
+      // 1人の選手が複数クラスで高レートなら、その分だけ複数行に登場するのが正しい
+      // （svlabo.jp側もクラスごとに別エントリなので、選手単位で1行に集約してしまうと
+      // 本来 上位に入っているはずの2つ目・3つ目のクラスの成績が消えてしまう）。
+      rows = svlabo.filter(r => r.period === filters.period)
+        .map(r => ({ team_tag: r.team_tag, player_name: r.player_name, rating: parseFloat(r.rating) || 0, class: r.class }));
+    } else {
+      rows = svlabo.filter(r => r.period === filters.period && r.class === filters.class)
+        .map(r => ({ team_tag: r.team_tag, player_name: r.player_name, rating: parseFloat(r.rating) || 0, rank: parseInt(r.rank, 10) }));
+    }
+    if (isAllClasses) {
+      rows.sort((a, b) => b.rating - a.rating);
+      rows = rows.slice(0, 100);
+      assignCompetitionRanks(rows, r => r.rating);
+    } else {
+      rows.sort((a, b) => a.rank - b.rank);
+    }
+
+    const body = rows.map(r => `
+      <tr class="${rankRowClass(r.rank)}">
+        <td class="rank-value">${r.rank}位</td>
+        <td>${teamCellHTML(r.team_tag)}</td>
+        <td>${playerNameCellHTML(r.player_name)}</td>
+        ${isAllClasses ? `<td>${classIconHTML(r.class, 20)}</td>` : ""}
+        <td class="rank-value">${fmtNum(r.rating)}</td>
+      </tr>`).join("");
+
+    tableWrap.innerHTML = rows.length ? `
+      <table class="rank-table">
+        <thead><tr><th>順位</th><th>チーム</th><th>選手</th>${isAllClasses ? "<th>クラス</th>" : ""}<th>レート</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+  }
+
+  [periodSelect, classSelect].forEach(el => el.addEventListener("change", draw));
+  querySelect.addEventListener("input", draw);
+  draw();
+}
+
+// 「TOP N入り回数」タブ: 全期間・全クラスを通じて「順位がしきい値以内だった回数」を
+// svlaboに載っている全ユーザー分について数え、回数の多い順に並べる。
+function renderCrCountTab(container) {
+  container.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label>しきい値</label>
+        <select id="thresholdSelect">${CR_TOPN_THRESHOLDS.map(t => `<option value="${t}">TOP${t}以内</option>`).join("")}</select>
+      </div>
+      <div class="control-group">
+        <label>選手検索</label>
+        <input type="text" id="querySelect" placeholder="選手名で検索">
+      </div>
+    </div>
+    <div id="tableWrap"></div>
+  `;
+  const thresholdSelect = container.querySelector("#thresholdSelect");
+  const querySelect = container.querySelector("#querySelect");
+  thresholdSelect.value = filters.threshold;
+  querySelect.value = filters.query;
+
+  function draw() {
+    filters.threshold = parseInt(thresholdSelect.value, 10);
+    filters.query = querySelect.value;
+
+    const counts = crTopNCounts(svlabo, filters.threshold);
+    const population = applySearch(uniqueSvlaboPlayers(svlabo), filters.query);
+    let rows = population.map(u => ({ team_tag: u.team_tag, player_name: u.player_name, rating: counts[normalizeName(u.player_name)] || 0 }));
+    rows.sort((a, b) => b.rating - a.rating);
+    assignCompetitionRanks(rows, r => r.rating);
+
+    const body = rows.map(r => `
+      <tr class="${rankRowClass(r.rank)}">
+        <td class="rank-value">${r.rank}位</td>
+        <td>${teamCellHTML(r.team_tag)}</td>
+        <td>${playerNameCellHTML(r.player_name)}</td>
+        <td class="rank-value">${fmtNum(r.rating)}回</td>
+      </tr>`).join("");
+
+    container.querySelector("#tableWrap").innerHTML = rows.length ? `
+      <table class="rank-table">
+        <thead><tr><th>順位</th><th>チーム</th><th>選手</th><th>${crTopNLabel(filters.threshold)}</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+  }
+
+  thresholdSelect.addEventListener("change", draw);
+  querySelect.addEventListener("input", draw);
+  draw();
+}
+
+function renderBoard(app, svlaboPeriods, classes) {
+  app.innerHTML = `
+    <div class="team-select-row" style="margin-bottom:14px;">
+      <button class="team-select-btn ${boardMode === "rating" ? "active" : ""}" id="modeRatingBtn"
+        style="${boardMode === "rating" ? "background:var(--accent);" : ""}">レート</button>
+      <button class="team-select-btn ${boardMode === "cr" ? "active" : ""}" id="modeCrBtn"
+        style="${boardMode === "cr" ? "background:var(--accent);" : ""}">TOP N入り回数</button>
+    </div>
+    <div id="tabContent"></div>
+  `;
+  document.getElementById("modeRatingBtn").addEventListener("click", () => { boardMode = "rating"; renderBoard(app, svlaboPeriods, classes); });
+  document.getElementById("modeCrBtn").addEventListener("click", () => { boardMode = "cr"; renderBoard(app, svlaboPeriods, classes); });
+
+  const content = document.getElementById("tabContent");
+  if (boardMode === "cr") renderCrCountTab(content);
+  else renderRatingTab(content, svlaboPeriods, classes);
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data;
+  try {
+    [data, svlabo] = await Promise.all([loadData(), loadSvlaboLeaderboard()]);
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  if (!svlabo.length) {
+    app.innerHTML = `<div class="empty-note">まだランクマッチのデータがありません</div>`;
+    return;
+  }
+  playerLookup = buildPlayerLookup(data.players);
+
+  // ファイル内での出現順が新しい期間から並んでいるので、そのまま使う（先頭が最新）。
+  const periods = [...new Set(svlabo.map(r => r.period))];
+  const classes = [...new Set(svlabo.map(r => r.class))];
+
+  filters.period = periods[0];
+  filters.class = ""; // デフォルトは「すべて」
+
+  renderBoard(app, periods, classes);
+}
+
+boot();
+</script>
+</body>
+</html>

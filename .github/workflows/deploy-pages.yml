@@ -1,0 +1,60 @@
+name: Deploy site (no scrape)
+
+# site/ または data/ をpushしたときに、スクレイピングは行わず
+# 今あるデータでサイトだけを即座に再デプロイするワークフロー。
+# daily-update.yml は schedule / workflow_dispatch でしか動かないため、
+# site/index.html を直しただけではPagesが更新されない問題への対応。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "data/history.csv"
+      - "data/players.csv"
+      - "data/player_images.json"
+      - "data/match_results.csv"
+      - "data/result.json"
+      - "data/svlabo_leaderboards.csv"
+      - "data/battle_details.csv"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Pages output (site/ + data/ をまとめる)
+        run: |
+          mkdir -p _site
+          cp -r site/* _site/
+          mkdir -p _site/data
+          cp data/history.csv _site/data/history.csv
+          cp data/players.csv _site/data/players.csv
+          cp -f data/player_images.json _site/data/player_images.json 2>/dev/null || true
+          cp -f data/match_results.csv _site/data/match_results.csv 2>/dev/null || true
+          cp -f data/result.json _site/data/result.json 2>/dev/null || true
+          cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
+          cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "_site"
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

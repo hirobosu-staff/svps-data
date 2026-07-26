@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>選手詳細 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <nav>
+    <a class="nav-btn" href="index.html">選手一覧</a>
+    <a class="nav-btn" href="ranking.html">ランキング</a>
+    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="compare.html">比較</a>
+    <a class="nav-btn" href="beyond.html">BEYOND</a>
+  </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+let chart = null;
+
+function drawChart(history, name, metric, color) {
+  let labels, data;
+  if (metric === "stream_duration_cumulative") {
+    // 隔週の生値をそのまま繋いでも意味がないので、時系列に積み上げた累積値を表示する
+    ({ labels, data } = buildCumulativeSeries(history, name, "stream_duration"));
+    // periodは"jul_early_2026"のような内部キー（英語）なので、グラフの軸に出す前に
+    // 日本語ラベルに変換する（並び順はここまでの時点で既に時系列順になっているので、
+    // 変換してもソート順は崩れない）。
+    labels = labels.map(periodLabel);
+  } else {
+    const rows = history.filter(r => r.player_name === name && r.metric === metric).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    labels = rows.map(r => r.date);
+    data = rows.map(r => parseFloat(r.value));
+  }
+
+  if (chart) chart.destroy();
+  if (typeof Chart === "undefined") {
+    document.querySelector(".chart-box").innerHTML = `<div class="empty-note">グラフライブラリの読み込みに失敗しました</div>`;
+    return;
+  }
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: { labels, datasets: [{
+      label: metricLabel(metric),
+      data,
+      borderColor: color,
+      backgroundColor: color,
+      spanGaps: true,
+      tension: 0.25,
+      pointRadius: 3,
+    }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#6b7280" }, grid: { color: "#f0f1f3" } },
+        y: { ticks: { color: "#6b7280" }, grid: { color: "#f0f1f3" }, reverse: isLowerBetter(metric) },
+      },
+    },
+  });
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  const name = new URLSearchParams(location.search).get("name");
+
+  let data;
+  try {
+    data = await loadData();
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  const { players, history, images } = data;
+
+  const player = players.find(p => p.player_name === name);
+  if (!player) {
+    app.innerHTML = `<a class="back-link" href="index.html">選手一覧に戻る</a><div class="empty-note">選手が見つかりません</div>`;
+    return;
+  }
+
+  // 折れ線グラフとして意味のある指標だけに絞る（Xフォロワー数・YouTube登録者数・累積配信時間）。
+  // 配信時間は隔週ごとの生値をそのまま折れ線にしても「バラバラな値を繋いだだけ」で意味を
+  // 持たないため、時系列に積み上げた「累積配信時間」として表示する（stream_duration_cumulative、
+  // 実データはstream_durationを使うがdrawChart()側で累積計算する）。
+  // ランクマッチ最高順位やPS戦績のような「推移として見せる価値が薄い/別タブで扱う」指標は含めない。
+  const CHART_METRICS = [
+    { id: "followers", requires: "followers" },
+    { id: "youtube_subscribers", requires: "youtube_subscribers" },
+    { id: "stream_duration_cumulative", requires: "stream_duration" },
+  ];
+  const rows = history.filter(r => r.player_name === name);
+  const availableMetrics = new Set(rows.map(r => r.metric));
+  const metrics = CHART_METRICS.filter(m => availableMetrics.has(m.requires)).map(m => m.id);
+
+  const followers = latestValue(history, name, "followers");
+  const yt = latestValue(history, name, "youtube_subscribers");
+  const streamSeries = buildCumulativeSeries(history, name, "stream_duration");
+  const streamTotal = streamSeries.data.length ? streamSeries.data[streamSeries.data.length - 1] : null;
+  const color = TEAM_COLORS[player.team_tag] || "#888";
+
+  app.innerHTML = `
+    <a class="back-link" href="index.html">選手一覧に戻る</a>
+    <div class="detail-header">
+      ${avatarHTML(player, images, 72)}
+      <div class="info">
+        <h2>${player.player_name}</h2>
+        ${teamLogoHTML(player.team_tag, 24)}
+        <span style="color:var(--text-muted); font-size:13px; margin-left:6px;">${player.team_name}</span>
+      </div>
+    </div>
+    <div class="quick-stats">
+      <div class="quick-stat">
+        <div class="label">Xフォロワー数</div>
+        <div class="value">${followers != null ? fmtNum(followers) : "-"}</div>
+        ${player.x_url ? `<a href="${player.x_url}" target="_blank" rel="noopener" style="font-size:12px;">X</a>` : ""}
+      </div>
+      <div class="quick-stat">
+        <div class="label">YouTube登録者数</div>
+        <div class="value">${yt != null ? fmtNum(yt) : "-"}</div>
+        ${player.youtube_url ? `<a href="${player.youtube_url}" target="_blank" rel="noopener" style="font-size:12px;">YouTube</a>` : ""}
+      </div>
+      <div class="quick-stat">
+        <div class="label">累積配信時間</div>
+        <div class="value">${streamTotal != null ? fmtNum(streamTotal) + "h" : "-"}</div>
+        <a href="ranking.html?metric=stream_duration&period=__cumulative__" style="font-size:12px;">ランキング</a>
+      </div>
+      <div class="quick-stat">
+        <div class="label">PS公式戦</div>
+        <div class="value" style="font-size:14px;">試合結果を見る</div>
+        <a href="rounds.html?name=${encodeURIComponent(name)}" style="font-size:12px;">対戦履歴</a>
+      </div>
+    </div>
+    ${metrics.length ? `
+      <div class="control-row">
+        <div class="control-group">
+          <label>指標</label>
+          <select id="metricSelect">${metrics.map(m => `<option value="${m}">${metricLabel(m)}</option>`).join("")}</select>
+        </div>
+        <a href="compare.html" style="font-size:13px;">比較する</a>
+      </div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+    ` : `<div class="empty-note">この選手のデータはまだありません</div>`}
+  `;
+
+  if (metrics.length) {
+    const sel = document.getElementById("metricSelect");
+    // 初期選択は「累積配信時間」にする（compare.htmlと同じ考え方）。フォロワー数・登録者数は
+    // まだ観測点が1つしかない選手が多く、折れ線として見づらいため。
+    if (metrics.includes("stream_duration_cumulative")) sel.value = "stream_duration_cumulative";
+    sel.addEventListener("change", () => drawChart(history, name, sel.value, color));
+    drawChart(history, name, sel.value, color);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

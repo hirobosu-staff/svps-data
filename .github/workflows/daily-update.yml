@@ -1,0 +1,97 @@
+name: Daily stats update
+
+on:
+  schedule:
+    # 毎日 22:00 JST (=13:00 UTC) に実行
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}  # 手動実行用（Actionsタブから "Run workflow" で即実行できる）
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Scrape shadowverse-reference.com
+        working-directory: scripts
+        run: python scrape_reference.py
+        continue-on-error: true  # 1サイト落ちても他の取得は続ける
+
+      - name: Scrape ps.shadowverse-wb.com
+        working-directory: scripts
+        run: python scrape_ps_results.py
+        continue-on-error: true
+
+      - name: Scrape YouTube subscriber counts
+        working-directory: scripts
+        run: python scrape_youtube.py
+        continue-on-error: true
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+
+      - name: Fetch player photos
+        working-directory: scripts
+        run: python scrape_player_images.py
+        continue-on-error: true  # 写真は既にある選手はスキップするので、失敗しても他の処理は続ける
+
+      - name: Fetch team standings (result.json)
+        working-directory: scripts
+        run: python scrape_result.py
+        continue-on-error: true  # 失敗時は既存のdata/result.jsonをそのまま残す（スクリプト側で担保）
+
+      - name: Merge into history.csv
+        working-directory: scripts
+        run: python update_history.py
+
+      - name: Commit and push data
+        run: |
+          git config user.name "svps-tracker-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/ site/images/
+          git diff --cached --quiet && echo "No changes" || git commit -m "chore: daily stats update $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Build Pages output (site/ + data/ をまとめる)
+        run: |
+          mkdir -p _site
+          cp -r site/* _site/
+          mkdir -p _site/data
+          cp data/history.csv _site/data/history.csv
+          cp data/players.csv _site/data/players.csv
+          cp -f data/player_images.json _site/data/player_images.json 2>/dev/null || true
+          cp -f data/match_results.csv _site/data/match_results.csv 2>/dev/null || true
+          cp -f data/result.json _site/data/result.json 2>/dev/null || true
+          cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
+          cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "_site"
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

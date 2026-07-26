@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>選手比較 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <nav>
+    <a class="nav-btn" href="index.html">選手一覧</a>
+    <a class="nav-btn" href="ranking.html">ランキング</a>
+    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn active" href="compare.html">比較</a>
+    <a class="nav-btn" href="beyond.html">BEYOND</a>
+  </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+let chart = null;
+let selected = new Set();
+let players = [], history = [];
+
+// 折れ線グラフとして意味のある指標だけ（player.htmlと同じ考え方）
+const CHART_METRICS = [
+  { id: "followers", requires: "followers" },
+  { id: "youtube_subscribers", requires: "youtube_subscribers" },
+  { id: "stream_duration_cumulative", requires: "stream_duration" },
+];
+
+function seriesFor(metric, playerName) {
+  if (metric === "stream_duration_cumulative") return buildCumulativeSeries(history, playerName, "stream_duration");
+  const rows = history.filter(r => r.player_name === playerName && r.metric === metric).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  return { labels: rows.map(r => r.date), data: rows.map(r => parseFloat(r.value)) };
+}
+
+function drawCompareChart() {
+  const metric = document.getElementById("metricSelect").value;
+  const names = [...selected];
+
+  // 選手ごとにX軸(labels)が違う可能性があるので、全員分のlabelsを合成してから各系列をそこに合わせる。
+  // ここではまだ生のキー（累積配信時間ならperiod文字列"jul_early_2026"、それ以外は日付）のまま
+  // 扱う。表示用の日本語変換は、並び替えが終わったあとの最後の一手だけにする（先に変換すると
+  // "10月"のような2桁月が出てきたときに文字列ソートで順序が崩れるため）。
+  const allLabelsSet = new Set();
+  const seriesByName = {};
+  names.forEach(name => {
+    const s = seriesFor(metric, name);
+    seriesByName[name] = s;
+    s.labels.forEach(l => allLabelsSet.add(l));
+  });
+  const isCumulative = metric === "stream_duration_cumulative";
+  const rawLabels = [...allLabelsSet].sort(isCumulative ? (a, b) => periodSortKey(a) - periodSortKey(b) : undefined);
+  const labels = isCumulative ? rawLabels.map(periodLabel) : rawLabels;
+
+  const datasets = names.map((name) => {
+    const s = seriesByName[name];
+    const byLabel = {};
+    s.labels.forEach((l, idx) => byLabel[l] = s.data[idx]);
+    // 選手ごとにバラバラの色を割り当てるのではなく、同じチームの選手は同じ色にする
+    // （「チームごとに折れ線の色は変える」という要望に対応。個々の系列名はツールチップ/凡例で区別できる）。
+    const player = players.find(p => p.player_name === name);
+    const color = (player && TEAM_COLORS[player.team_tag]) || "#888";
+    return {
+      label: name,
+      data: rawLabels.map(l => byLabel[l] ?? null),
+      borderColor: color,
+      backgroundColor: color,
+      spanGaps: true,
+      tension: 0.25,
+      pointRadius: 2,
+    };
+  });
+
+  if (chart) chart.destroy();
+  const wrap = document.getElementById("chartWrap");
+  if (!names.length) {
+    wrap.innerHTML = `<div class="empty-note">比較したい選手をチームボタンか下のチップから選んでください</div>`;
+    return;
+  }
+  if (typeof Chart === "undefined") {
+    wrap.innerHTML = `<div class="empty-note">グラフライブラリの読み込みに失敗しました</div>`;
+    return;
+  }
+  wrap.innerHTML = `<canvas id="chart"></canvas>`;
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 10 } } },
+      scales: {
+        x: { ticks: { color: "#6b7280" }, grid: { color: "#f0f1f3" } },
+        y: { ticks: { color: "#6b7280" }, grid: { color: "#f0f1f3" }, reverse: isLowerBetter(metric) },
+      },
+    },
+  });
+}
+
+function renderChips() {
+  const wrap = document.getElementById("playerChips");
+  wrap.innerHTML = players.map(p => `
+    <span class="player-chip ${selected.has(p.player_name) ? "active" : ""}" data-name="${encodeURIComponent(p.player_name)}">
+      ${teamLogoHTML(p.team_tag, 16)}${p.player_name}
+    </span>`).join("");
+  wrap.querySelectorAll(".player-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const name = decodeURIComponent(chip.dataset.name);
+      if (selected.has(name)) selected.delete(name); else selected.add(name);
+      renderChips();
+      renderTeamButtons();
+      drawCompareChart();
+    });
+  });
+}
+
+function renderTeamButtons() {
+  const teams = [...new Set(players.map(p => p.team_tag))];
+  const wrap = document.getElementById("teamButtons");
+  wrap.innerHTML = teams.map(t => {
+    const teamPlayers = players.filter(p => p.team_tag === t);
+    const allSelected = teamPlayers.every(p => selected.has(p.player_name));
+    const color = TEAM_COLORS[t] || "#888";
+    return `<button class="team-select-btn ${allSelected ? "active" : ""}" data-team="${t}"
+      style="${allSelected ? `background:${color};` : ""}">${teamLogoHTML(t, 16)}${t}チーム全員</button>`;
+  }).join("");
+  wrap.querySelectorAll(".team-select-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const t = btn.dataset.team;
+      const teamPlayers = players.filter(p => p.team_tag === t);
+      const allSelected = teamPlayers.every(p => selected.has(p.player_name));
+      teamPlayers.forEach(p => allSelected ? selected.delete(p.player_name) : selected.add(p.player_name));
+      renderChips();
+      renderTeamButtons();
+      drawCompareChart();
+    });
+  });
+}
+
+// --- 表で比較（一覧比較表） ---
+// 「一覧比較できるページ」の要望に対応。折れ線グラフ（1指標×選手を選んで重ねる）とは別に、
+// 全選手を1つのスプレッドシート的な表にまとめ、列見出しクリックでソートできるようにする。
+// 月間ポスト数（Xの投稿数）はスクレイピングが現実的に難しいため含めていない。
+// 最高順位（crRank）はdata/svlabo_leaderboards.csv（全ユーザー分）から選手ごとの最良順位を
+// 算出したもの（crBestRankForPlayer()参照）。BEYOND回数(100位以内)は同データから
+// 「順位が100位以内だった回数」を数えたもの（crTopNCounts()参照）。配信時間・動画本数は、
+// このサイトの他のページと同じ考え方（隔週の生値ではなく積み上げた累積値の方が意味がある）
+// に合わせて累積値で出す。
+let matches = [];
+let svlabo = [];
+let tableSort = { key: "followers", dir: "desc" };
+
+function hexToRgba(hex, alpha) {
+  const h = (hex || "#888888").replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function buildTableRows(players, history, images, matches, svlabo) {
+  const cr100Counts = crTopNCounts(svlabo, 100);
+  return players.map(player => {
+    const streamSeries = buildCumulativeSeries(history, player.player_name, "stream_duration");
+    const videoSeries = buildCumulativeSeries(history, player.player_name, "video_upload_count");
+    const followersRaw = latestValue(history, player.player_name, "followers");
+    const ytRaw = latestValue(history, player.player_name, "youtube_subscribers");
+    return {
+      player, images,
+      followers: followersRaw != null ? parseFloat(followersRaw) : null,
+      yt: ytRaw != null ? parseFloat(ytRaw) : null,
+      stats: summarizeMatches(matches, player.player_name),
+      streamTotal: streamSeries.data.length ? streamSeries.data[streamSeries.data.length - 1] : null,
+      videoTotal: videoSeries.data.length ? videoSeries.data[videoSeries.data.length - 1] : null,
+      // data/svlabo_leaderboards.csv（全ユーザー分）から選手ごとの最高順位を求める。
+      // 以前はhistory.csvのcr_best_rank_overallを見ていたが、これは手動スクレイピングを
+      // 実行した選手（Atomのみ）にしか値が入っておらず、他の選手が軒並み「-」になっていた。
+      crRank: crBestRankForPlayer(svlabo, player),
+      cr100: crCountForPlayer(cr100Counts, player),
+    };
+  });
+}
+
+const TABLE_COLUMNS = [
+  { key: "team", label: "チーム", defaultDir: "asc",
+    sortValue: r => r.player.team_tag || "",
+    render: r => `${teamLogoHTML(r.player.team_tag, 20)} <span style="margin-left:4px;">${r.player.team_tag}</span>` },
+  { key: "name", label: "名前", defaultDir: "asc",
+    sortValue: r => r.player.player_name || "",
+    render: r => `<a class="player-link" href="player.html?name=${encodeURIComponent(r.player.player_name)}">${avatarHTML(r.player, r.images, 22)}${r.player.player_name}</a>` },
+  { key: "followers", label: "フォロワー", defaultDir: "desc",
+    sortValue: r => r.followers ?? -1,
+    render: r => r.followers != null ? fmtNum(r.followers) : "-" },
+  { key: "yt", label: "登録者", defaultDir: "desc",
+    sortValue: r => r.yt ?? -1,
+    render: r => r.yt != null ? fmtNum(r.yt) : "-" },
+  { key: "ps", label: "戦績", defaultDir: "desc",
+    sortValue: r => r.stats.points,
+    render: r => r.stats.played ? `${r.stats.wins}勝${r.stats.losses}敗` : "-" },
+  { key: "stream", label: "配信時間", defaultDir: "desc",
+    sortValue: r => r.streamTotal ?? -1,
+    render: r => r.streamTotal != null ? fmtNum(r.streamTotal) + "h" : "-" },
+  { key: "videos", label: "動画本数", defaultDir: "desc",
+    sortValue: r => r.videoTotal ?? -1,
+    render: r => r.videoTotal != null ? fmtNum(r.videoTotal) : "-" },
+  { key: "crrank", label: "最高順位", defaultDir: "asc",
+    sortValue: r => r.crRank ?? Infinity,
+    render: r => r.crRank != null ? fmtNum(r.crRank) + "位" : "-" },
+  { key: "cr100", label: "BEYOND回数", defaultDir: "desc",
+    sortValue: r => r.cr100,
+    render: r => fmtNum(r.cr100) },
+];
+
+function renderTableMode(container) {
+  const rows = buildTableRows(players, history, images, matches, svlabo);
+
+  function draw() {
+    const col = TABLE_COLUMNS.find(c => c.key === tableSort.key);
+    const sorted = rows.slice().sort((a, b) => {
+      const av = col.sortValue(a), bv = col.sortValue(b);
+      let cmp;
+      if (typeof av === "string") cmp = av.localeCompare(bv, "ja");
+      else cmp = av - bv;
+      return tableSort.dir === "asc" ? cmp : -cmp;
+    });
+
+    const thead = TABLE_COLUMNS.map(c => {
+      const active = c.key === tableSort.key;
+      const arrow = active ? (tableSort.dir === "asc" ? "▲" : "▼") : "";
+      return `<th class="sortable ${active ? "active" : ""}" data-key="${c.key}">${c.label}<span class="sort-arrow">${arrow}</span></th>`;
+    }).join("");
+
+    const body = sorted.map(r => `
+      <tr class="team-row-stripe" style="border-left-color:${TEAM_COLORS[r.player.team_tag] || "#888"}; background:${hexToRgba(TEAM_COLORS[r.player.team_tag] || "#888888", 0.05)};">
+        ${TABLE_COLUMNS.map(c => `<td>${c.render(r)}</td>`).join("")}
+      </tr>`).join("");
+
+    container.innerHTML = `
+      <div class="table-scroll"><table class="rank-table nowrap"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>
+    `;
+    container.querySelectorAll("th.sortable").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.key;
+        const c = TABLE_COLUMNS.find(x => x.key === key);
+        if (tableSort.key === key) tableSort.dir = tableSort.dir === "asc" ? "desc" : "asc";
+        else tableSort = { key, dir: c.defaultDir };
+        draw();
+      });
+    });
+  }
+  draw();
+}
+
+// --- グラフで比較（既存の折れ線グラフ機能） ---
+
+function renderGraphMode(container) {
+  const availableMetrics = new Set(history.map(r => r.metric));
+  const metrics = CHART_METRICS.filter(m => availableMetrics.has(m.requires)).map(m => m.id);
+
+  if (!metrics.length) {
+    container.innerHTML = `<div class="empty-note">まだ比較できるデータがありません</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label>指標</label>
+        <select id="metricSelect">${metrics.map(m => `<option value="${m}">${metricLabel(m)}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="control-group" style="margin-bottom:6px;">
+      <label>チームで一括選択</label>
+      <div class="team-select-row" id="teamButtons"></div>
+    </div>
+    <div class="control-group" style="margin-bottom:16px;">
+      <label>選手を個別に選択</label>
+      <div class="team-select-row" style="margin-bottom:6px;">
+        <button class="team-select-btn" id="selectAllBtn">全選択</button>
+        <button class="team-select-btn" id="deselectAllBtn">全解除</button>
+      </div>
+      <div class="player-chip-list" id="playerChips"></div>
+    </div>
+    <div class="chart-box" id="chartWrap"></div>
+  `;
+
+  // 初期表示は「今選ばれている指標を全選手分比較した状態」にする（選ぶ手間を無くす）。
+  // 多すぎて見づらい場合は下の「全解除」ボタンで一旦クリアできる。
+  players.forEach(p => selected.add(p.player_name));
+
+  // 初期選択の指標は「累積配信時間」にする。フォロワー数・登録者数はまだ観測点が
+  // 1つしかない選手が多く、折れ線としては見づらいため（配信時間は隔週ごとに増えていく）。
+  const metricSelect = document.getElementById("metricSelect");
+  if (metrics.includes("stream_duration_cumulative")) metricSelect.value = "stream_duration_cumulative";
+
+  metricSelect.addEventListener("change", drawCompareChart);
+  document.getElementById("selectAllBtn").addEventListener("click", () => {
+    players.forEach(p => selected.add(p.player_name));
+    renderChips(); renderTeamButtons(); drawCompareChart();
+  });
+  document.getElementById("deselectAllBtn").addEventListener("click", () => {
+    selected.clear();
+    renderChips(); renderTeamButtons(); drawCompareChart();
+  });
+  renderTeamButtons();
+  renderChips();
+  drawCompareChart();
+}
+
+let images = {};
+
+function renderModeSwitcher(app, mode) {
+  app.innerHTML = `
+    <div class="team-select-row" style="margin-bottom:14px;">
+      <button class="team-select-btn ${mode === "table" ? "active" : ""}" id="modeTableBtn"
+        style="${mode === "table" ? "background:var(--accent);" : ""}">表で比較</button>
+      <button class="team-select-btn ${mode === "graph" ? "active" : ""}" id="modeGraphBtn"
+        style="${mode === "graph" ? "background:var(--accent);" : ""}">グラフで比較</button>
+    </div>
+    <div id="modeContent"></div>
+  `;
+  document.getElementById("modeGraphBtn").addEventListener("click", () => renderModeSwitcher(app, "graph"));
+  document.getElementById("modeTableBtn").addEventListener("click", () => renderModeSwitcher(app, "table"));
+
+  const content = document.getElementById("modeContent");
+  if (mode === "table") renderTableMode(content);
+  else renderGraphMode(content);
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data;
+  try {
+    [data, matches, svlabo] = await Promise.all([loadData(), loadMatches(), loadSvlaboLeaderboard()]);
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  players = data.players;
+  history = data.history;
+  images = data.images;
+
+  renderModeSwitcher(app, "table");
+}
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>選手一覧 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <nav>
+    <a class="nav-btn active" href="index.html">選手一覧</a>
+    <a class="nav-btn" href="ranking.html">ランキング</a>
+    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="compare.html">比較</a>
+    <a class="nav-btn" href="beyond.html">BEYOND</a>
+  </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+function playerCardHTML(p, history, images) {
+  const followers = latestValue(history, p.player_name, "followers");
+  const yt = latestValue(history, p.player_name, "youtube_subscribers");
+  return `
+    <a class="player-card" href="player.html?name=${encodeURIComponent(p.player_name)}">
+      <div class="photo-row">
+        ${avatarHTML(p, images, 44)}
+        <div>
+          <div class="name">${p.player_name}</div>
+          ${teamLogoHTML(p.team_tag, 18)}
+        </div>
+      </div>
+      <div class="stats">
+        <div>Xフォロワー: <b>${followers != null ? fmtNum(followers) : "-"}</b></div>
+        <div>YouTube登録者: <b>${yt != null ? fmtNum(yt) : "-"}</b></div>
+      </div>
+    </a>`;
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data, matches, resultJson;
+  try {
+    [data, matches, resultJson] = await Promise.all([loadData(), loadMatches(), loadResultJson()]);
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+
+  const { players, history, images } = data;
+  const { list: standings, source } = computeTeamStandings(players, matches, resultJson);
+  const hasRank = source !== "none";
+
+  const header = hasRank ? `
+    <div class="standings-header">
+      <span class="col-rank">順位</span>
+      <span class="col-logo">ロゴ</span>
+      <span class="col-name">チーム名</span>
+      <span class="col-num">WIN</span>
+      <span class="col-num">LOSE</span>
+      <span class="col-num">W/L DIFF</span>
+      <span class="col-num">BATTLE POINT</span>
+      <span class="col-chevron"></span>
+    </div>` : "";
+
+  const blocks = standings.map((team, i) => {
+    const cards = team.players.map(p => playerCardHTML(p, history, images)).join("");
+    const diff = team.diff || 0;
+    const diffText = diff > 0 ? `+${diff}` : `${diff}`;
+    const row = hasRank ? `
+      <span class="col-rank">${team.rank}</span>
+      <span class="col-logo">${teamLogoHTML(team.team_tag, 32)}</span>
+      <span class="col-name">${team.team_name}</span>
+      <span class="col-num">${team.wins}</span>
+      <span class="col-num">${team.losses}</span>
+      <span class="col-num">${diffText}</span>
+      <span class="col-num">${fmtNum(team.points)}</span>
+    ` : `
+      ${teamLogoHTML(team.team_tag, 28)}
+      <span class="team-title">${team.team_name}</span>
+      <span class="team-points">試合結果はまだありません</span>
+    `;
+    return `
+      <details class="team-block" ${i === 0 && hasRank ? "open" : ""}>
+        <summary>
+          ${row}
+          <span class="chevron">▼</span>
+        </summary>
+        <div class="team-panel">
+          <div class="players-grid">${cards}</div>
+        </div>
+      </details>`;
+  }).join("");
+
+  app.innerHTML = header + blocks;
+}
+
+boot();
+</script>
+</body>
+</html>
