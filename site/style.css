@@ -204,3 +204,12 @@ a.ext-link {
 #rankTableWrap th:nth-child(3), #rankTableWrap td:nth-child(3) { width: auto; }
 #rankTableWrap th:nth-child(4), #rankTableWrap td:nth-child(4) { width: 200px; overflow-wrap: break-word; }
 #rankTableWrap th:nth-child(5), #rankTableWrap td:nth-child(5) { width: 70px; }
+
+/* rounds.html: 通算成績も同じ理由（table-layout:autoだと5列しかない表が画面幅いっぱいに
+   間延びして見づらい）でranking.htmlと同じ考え方の固定列幅にする。 */
+#leaderboardTableWrap table { table-layout: fixed; max-width: 640px; }
+#leaderboardTableWrap th:nth-child(1), #leaderboardTableWrap td:nth-child(1) { width: 40px; }
+#leaderboardTableWrap th:nth-child(2), #leaderboardTableWrap td:nth-child(2) { width: 60px; }
+#leaderboardTableWrap th:nth-child(3), #leaderboardTableWrap td:nth-child(3) { width: auto; }
+#leaderboardTableWrap th:nth-child(4), #leaderboardTableWrap td:nth-child(4) { width: 110px; }
+#leaderboardTableWrap th:nth-child(5), #leaderboardTableWrap td:nth-child(5) { width: 80px; }

@@ -95,6 +95,15 @@ function renderLeaderboard(container, players, images, matches) {
   }
   const all = players.map(p => ({ player: p, stats: summarizeMatches(matches, p.player_name) }));
 
+  // 表示列のソート順とは別に、「順位」自体は常に戦績(勝数→勝率)による実際の成績で決める。
+  // 1勝0敗(100%)と1勝1敗(50%)は勝数が同じでも中身が違うので同じ順位にはしない一方、
+  // 全く同じ成績（例:2人とも2勝0敗）の選手は同着として同じ順位を付ける。
+  const standings = all.filter(r => r.stats.played > 0).slice()
+    .sort((a, b) => (b.stats.wins - a.stats.wins) || (b.stats.winRate - a.stats.winRate));
+  assignCompetitionRanks(standings, r => r.stats.wins * 100000 - r.stats.losses);
+  const rankByPlayer = {};
+  standings.forEach(r => { rankByPlayer[r.player.player_name] = r.rank; });
+
   function draw() {
     const col = LEADERBOARD_COLUMNS.find(c => c.key === leaderboardSort.key);
     const played = all.filter(r => r.stats.played > 0).slice().sort((a, b) => {
@@ -108,13 +117,14 @@ function renderLeaderboard(container, players, images, matches) {
     // メダル色は「戦績が良い順」の並びの時だけ意味を持つので、それ以外の列でソートしている間は付けない
     const isRankOrder = leaderboardSort.key === "wins" && leaderboardSort.dir === "desc";
     const medal = ["gold", "silver", "bronze"];
-    const body = rows.map((r, i) => {
+    const body = rows.map((r) => {
       const { player, stats } = r;
       const isPlayed = stats.played > 0;
-      const rankClass = isPlayed && isRankOrder ? (medal[i] || "") : "";
+      const rank = isPlayed ? rankByPlayer[player.player_name] : null;
+      const rankClass = isPlayed && isRankOrder && rank <= 3 ? (medal[rank - 1] || "") : "";
       return `
         <tr>
-          <td><span class="rank-num ${rankClass}">${isPlayed ? i + 1 : "-"}</span></td>
+          <td><span class="rank-num ${rankClass}">${isPlayed ? rank : "-"}</span></td>
           <td>${teamLogoHTML(player.team_tag, 22)}</td>
           <td>
             <a class="player-link" href="rounds.html?name=${encodeURIComponent(player.player_name)}">
@@ -134,10 +144,12 @@ function renderLeaderboard(container, players, images, matches) {
     }).join("");
 
     container.innerHTML = `
-      <table class="rank-table">
-        <thead><tr><th>#</th>${thead}</tr></thead>
-        <tbody>${body}</tbody>
-      </table>
+      <div id="leaderboardTableWrap">
+        <table class="rank-table">
+          <thead><tr><th>#</th>${thead}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
     `;
     container.querySelectorAll("th.sortable").forEach(th => {
       th.addEventListener("click", () => {
