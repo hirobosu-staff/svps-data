@@ -240,6 +240,13 @@ function teamLogoHTML(teamTag, size) {
 const REVERSE_TEAM_TAG_ALIASES = { RID: "RDL", VL: "VRL" };
 function resolveTeamTag(tag) { return REVERSE_TEAM_TAG_ALIASES[tag] || tag; }
 
+// svlabo.jpの「TAG｜名前」表記のTAG部分は、そのユーザーが自分で名乗っている
+// 個人の識別用タグであって、PS公式チームとは無関係のケースがほとんど（あいむ、iDeal等）。
+// players.csvで実際にチーム所属が確認できている選手（PS8チーム＋合宿組）以外は
+// 「チームらしきバッジ」を表示しないようにするための許可リスト。
+const KNOWN_TEAM_TAGS = new Set([...Object.keys(TEAM_LOGO_FILES), "合宿組"]);
+function isKnownTeamTag(tag) { return !!tag && KNOWN_TEAM_TAGS.has(tag); }
+
 // data/match_results.csv を読み込む（存在しない/まだ試合が無い場合は空配列を返す）。
 async function loadMatches() {
   try {

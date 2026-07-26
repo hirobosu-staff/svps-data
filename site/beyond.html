@@ -40,17 +40,31 @@ let svlabo = [], playerLookup = {};
 let boardMode = "rating";
 const filters = { period: null, class: "", threshold: 100, query: "" };
 
-function playerNameCellHTML(rawName) {
-  const p = lookupPlayer(playerLookup, rawName);
-  if (p) return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${rawName}</a>`;
+// 既知のチーム（PS8チーム＋合宿組）に所属していない選手は、svlabo.jp上の表記
+// 「TAG｜名前」をそのまま選手名として表示する（TAGはチームではなく個人の識別名のため、
+// 勝手に切り離さず「あいむ｜UFV」のようにまとめて出す）。
+function displayPlayerName(rawTag, rawName) {
+  const tag = resolveTeamTag(rawTag);
+  if (rawTag && !isKnownTeamTag(tag)) return `${rawTag}｜${rawName}`;
   return rawName;
+}
+
+function playerNameCellHTML(rawTag, rawName) {
+  const display = displayPlayerName(rawTag, rawName);
+  const p = lookupPlayer(playerLookup, rawName);
+  if (p) return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${display}</a>`;
+  return display;
 }
 
 // チームに所属していないのはこの一覧では普通のこと（PS選手の方が少数派）なので、
 // 「無所属」と目立つ文言を出さず、単に薄いダッシュにする。
+// また、svlabo.jp上の「TAG｜名前」のTAGはユーザーが自由に名乗れる個人タグであり、
+// PS公式チームとは限らない（例:「あいむ｜UFV」のTAGは個人の識別名で、チームではない）。
+// players.csvで所属が確認できている選手（PS8チーム＋合宿組）以外は、実在しないチームを
+// でっち上げて表示することになるため、既知のチームタグでない限りダッシュにする。
 function teamCellHTML(rawTag) {
   const tag = resolveTeamTag(rawTag);
-  if (!tag) return `<span style="color:var(--text-muted);">-</span>`;
+  if (!isKnownTeamTag(tag)) return `<span style="color:var(--text-muted);">-</span>`;
   return teamLogoHTML(tag, 20);
 }
 
@@ -71,7 +85,9 @@ function uniqueSvlaboPlayers(list) {
 function applySearch(rows, query) {
   if (!query.trim()) return rows;
   const q = normalizeName(query);
-  return rows.filter(r => normalizeName(r.player_name).includes(q));
+  // 「あいむ｜UFV」のように表示上はタグ込みの名前になっている選手も検索で拾えるように、
+  // 選手名だけでなく表示上のタグ部分も対象にする。
+  return rows.filter(r => normalizeName(r.player_name).includes(q) || normalizeName(displayPlayerName(r.team_tag, r.player_name)).includes(q));
 }
 
 // 上位を薄く色分けするための行クラス（1位・2位・3位はそれぞれ金銀銅で、4〜10位はまとめて軽くハイライトする）。
@@ -88,7 +104,7 @@ function rankRowClass(rank) {
 // 全期間×全クラス横断でそのまま列挙する（svlaboの生データをそのまま見せる）。
 function renderSearchResults(container) {
   const q = normalizeName(filters.query);
-  const rows = svlabo.filter(r => normalizeName(r.player_name).includes(q));
+  const rows = svlabo.filter(r => normalizeName(r.player_name).includes(q) || normalizeName(displayPlayerName(r.team_tag, r.player_name)).includes(q));
 
   const body = rows.map(r => `
     <tr class="${rankRowClass(parseInt(r.rank, 10))}">
@@ -96,7 +112,7 @@ function renderSearchResults(container) {
       <td>${classIconHTML(r.class, 20)}</td>
       <td class="rank-value">${r.rank}位</td>
       <td>${teamCellHTML(r.team_tag)}</td>
-      <td>${playerNameCellHTML(r.player_name)}</td>
+      <td>${playerNameCellHTML(r.team_tag, r.player_name)}</td>
       <td class="rank-value">${fmtNum(r.rating)}</td>
     </tr>`).join("");
 
@@ -174,7 +190,7 @@ function renderRatingTab(container, svlaboPeriods, classes) {
       <tr class="${rankRowClass(r.rank)}">
         <td class="rank-value">${r.rank}位</td>
         <td>${teamCellHTML(r.team_tag)}</td>
-        <td>${playerNameCellHTML(r.player_name)}</td>
+        <td>${playerNameCellHTML(r.team_tag, r.player_name)}</td>
         ${isAllClasses ? `<td>${classIconHTML(r.class, 20)}</td>` : ""}
         <td class="rank-value">${fmtNum(r.rating)}</td>
       </tr>`).join("");
@@ -226,7 +242,7 @@ function renderCrCountTab(container) {
       <tr class="${rankRowClass(r.rank)}">
         <td class="rank-value">${r.rank}位</td>
         <td>${teamCellHTML(r.team_tag)}</td>
-        <td>${playerNameCellHTML(r.player_name)}</td>
+        <td>${playerNameCellHTML(r.team_tag, r.player_name)}</td>
         <td class="rank-value">${fmtNum(r.rating)}回</td>
       </tr>`).join("");
 
