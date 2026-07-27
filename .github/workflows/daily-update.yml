@@ -2,8 +2,11 @@ name: Daily stats update
 
 on:
   schedule:
-    # 毎日 22:00 JST (=13:00 UTC) に実行
-    - cron: "0 13 * * *"
+    # 毎日 12:17 JST (=03:17 UTC) に実行。
+    # 夜間にする必然性は無く、日中に実行しておけば仮に遅延しても日付を跨ぐリスクが低い。
+    # また毎時ちょうど(0分)はGitHub Actions全体のスケジュール実行が集中して混雑しやすいため
+    # （実際に22:00予定→翌00:37実行という遅延が発生した）、分もずらしている。
+    - cron: "17 3 * * *"
   workflow_dispatch: {}  # 手動実行用（Actionsタブから "Run workflow" で即実行できる）
 
 permissions:
