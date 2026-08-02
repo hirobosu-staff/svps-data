@@ -84,7 +84,10 @@ let leaderboardSort = { key: "wins", dir: "desc" };
 const LEADERBOARD_COLUMNS = [
   { key: "team", label: "チーム", defaultDir: "asc", sortValue: r => r.player.team_tag || "" },
   { key: "name", label: "選手", defaultDir: "asc", sortValue: r => r.player.player_name || "" },
-  { key: "wins", label: "戦績", defaultDir: "desc", sortValue: r => r.stats.wins },
+  // 勝数だけで比較すると2勝1敗と2勝0敗が同値になり順位表示と行の並びがズレるため、
+  // 「順位」の判定(assignCompetitionRanksのkeyFn)と同じ計算式でタイブレークする
+  // (勝数が多い順、勝数が同じなら負け数が少ない順)。
+  { key: "wins", label: "戦績", defaultDir: "desc", sortValue: r => r.stats.wins * 100000 - r.stats.losses },
   { key: "winRate", label: "勝率", defaultDir: "desc", sortValue: r => r.stats.winRate ?? -1 },
 ];
 
