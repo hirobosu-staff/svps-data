@@ -98,12 +98,14 @@ function renderLeaderboard(container, players, images, matches) {
   }
   const all = players.map(p => ({ player: p, stats: summarizeMatches(matches, p.player_name) }));
 
-  // 表示列のソート順とは別に、「順位」自体は常に戦績(勝数→勝率)による実際の成績で決める。
-  // 1勝0敗(100%)と1勝1敗(50%)は勝数が同じでも中身が違うので同じ順位にはしない一方、
-  // 全く同じ成績（例:2人とも2勝0敗）の選手は同着として同じ順位を付ける。
+  // 表示列のソート順とは別に、「順位」自体は常に戦績(勝数→負け数)による実際の成績で決める。
+  // 勝率は勝数0の選手だと常に0%になり負け数の違いを区別できない(0勝1敗も0勝2敗も0%)ため、
+  // タイブレークには勝率ではなく負け数を直接使う。assignCompetitionRanksはリストが既に
+  // keyFnと同じ順序でソートされている前提で動くので、ソート条件とkeyFnを完全に一致させる。
+  const rankKey = r => r.stats.wins * 100000 - r.stats.losses;
   const standings = all.filter(r => r.stats.played > 0).slice()
-    .sort((a, b) => (b.stats.wins - a.stats.wins) || (b.stats.winRate - a.stats.winRate));
-  assignCompetitionRanks(standings, r => r.stats.wins * 100000 - r.stats.losses);
+    .sort((a, b) => rankKey(b) - rankKey(a));
+  assignCompetitionRanks(standings, rankKey);
   const rankByPlayer = {};
   standings.forEach(r => { rankByPlayer[r.player.player_name] = r.rank; });
 
