@@ -1,14 +1,62 @@
 {
   "status": "interim",
   "teams": [
-    { "id": 1, "win": 2, "lose": 1, "diff": 4, "battlepoint": 8 },
-    { "id": 2, "win": 0, "lose": 3, "diff": -5, "battlepoint": 4 },
-    { "id": 3, "win": 3, "lose": 0, "diff": 7, "battlepoint": 10 },
-    { "id": 4, "win": 0, "lose": 3, "diff": -10, "battlepoint": 1 },
-    { "id": 5, "win": 2, "lose": 1, "diff": 3, "battlepoint": 8 },
-    { "id": 6, "win": 2, "lose": 1, "diff": 4, "battlepoint": 9 },
-    { "id": 7, "win": 0, "lose": 3, "diff": -8, "battlepoint": 2 },
-    { "id": 8, "win": 3, "lose": 0, "diff": 5, "battlepoint": 9 }
+    {
+      "id": 1,
+      "win": 2,
+      "lose": 1,
+      "diff": 4,
+      "battlepoint": 8
+    },
+    {
+      "id": 2,
+      "win": 0,
+      "lose": 3,
+      "diff": -5,
+      "battlepoint": 4
+    },
+    {
+      "id": 3,
+      "win": 3,
+      "lose": 0,
+      "diff": 7,
+      "battlepoint": 10
+    },
+    {
+      "id": 4,
+      "win": 0,
+      "lose": 3,
+      "diff": -10,
+      "battlepoint": 1
+    },
+    {
+      "id": 5,
+      "win": 2,
+      "lose": 1,
+      "diff": 3,
+      "battlepoint": 8
+    },
+    {
+      "id": 6,
+      "win": 2,
+      "lose": 1,
+      "diff": 4,
+      "battlepoint": 9
+    },
+    {
+      "id": 7,
+      "win": 0,
+      "lose": 3,
+      "diff": -8,
+      "battlepoint": 2
+    },
+    {
+      "id": 8,
+      "win": 3,
+      "lose": 0,
+      "diff": 5,
+      "battlepoint": 9
+    }
   ],
   "confirmed_odds": null
 }
