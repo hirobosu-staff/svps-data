@@ -297,6 +297,9 @@ async function boot() {
 
   filters.period = periods[0];
   filters.class = ""; // デフォルトは「すべて」
+  // player.html（選手詳細）から ?name=選手名 で飛んで来た場合は、その選手を検索した
+  // 状態で開く（選手ページ↔BEYONDを相互に行き来できるようにするため）。
+  filters.query = new URLSearchParams(location.search).get("name") || "";
 
   renderBoard(app, periods, classes);
 }

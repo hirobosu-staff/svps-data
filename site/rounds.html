@@ -29,6 +29,16 @@
 // - ?name=選手名 が付いていれば、その選手の個人成績（対戦履歴・配信リンク）を表示
 // - それ以外は「通算成績」(全選手リーダーボード) か「節別に見る」(節ごとの詳細) を
 //   ページ内のボタンで切り替えられる
+// 節別詳細（svlabo.jp由来）に出てくる選手名から選手ページへリンクするための対応表。
+// battle_details.csvは選手名しか持っていないので、players.csvと突き合わせて
+// 実在する選手だけリンクにする（「チームバトル」など選手以外の行はリンクにしない）。
+let playerLookup = {};
+function playerNameLinkHTML(rawName) {
+  const p = lookupPlayer(playerLookup, rawName);
+  if (!p) return rawName;
+  return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${rawName}</a>`;
+}
+
 async function boot() {
   const app = document.getElementById("app");
   const params = new URLSearchParams(location.search);
@@ -42,6 +52,7 @@ async function boot() {
     return;
   }
   const { players, images } = data;
+  playerLookup = buildPlayerLookup(players);
 
   if (name) {
     renderPlayerMatches(app, players, images, matches, battleDetails, name);
@@ -132,12 +143,14 @@ function renderLeaderboard(container, players, images, matches) {
           <td><span class="rank-num ${rankClass}">${isPlayed ? rank : "-"}</span></td>
           <td>${teamLogoHTML(player.team_tag, 22)}</td>
           <td>
-            <a class="player-link" href="rounds.html?name=${encodeURIComponent(player.player_name)}">
+            <a class="player-link" href="player.html?name=${encodeURIComponent(player.player_name)}">
               ${avatarHTML(player, images, 28)}
               ${player.player_name}
             </a>
           </td>
-          <td>${stats.wins}勝${stats.losses}敗</td>
+          <td>${isPlayed
+            ? `<a href="rounds.html?name=${encodeURIComponent(player.player_name)}">${stats.wins}勝${stats.losses}敗</a>`
+            : `${stats.wins}勝${stats.losses}敗`}</td>
           <td>${isPlayed ? (stats.winRate * 100).toFixed(0) + "%" : "-"}</td>
         </tr>`;
     }).join("");
@@ -207,7 +220,9 @@ function renderPlayerMatches(app, players, images, matches, battleDetails, name)
       <td>
         <span class="vs-cell">
           ${teamLogoHTML(r.opponent_team_tag, 18)}
-          <a href="player.html?name=${encodeURIComponent(r.opponent_name)}">${r.opponent_name || "-"}</a>
+          ${r.opponent_name
+            ? `<a href="player.html?name=${encodeURIComponent(r.opponent_name)}">${r.opponent_name}</a>`
+            : "-"}
           ${classIconHTML(r.opponent_class)}
         </span>
       </td>
@@ -219,15 +234,22 @@ function renderPlayerMatches(app, players, images, matches, battleDetails, name)
   app.innerHTML = `
     <a class="back-link" href="rounds.html">通算成績に戻る</a>
     <div class="detail-header">
-      ${avatarHTML(player, images, 56)}
+      <a href="player.html?name=${encodeURIComponent(player.player_name)}">${avatarHTML(player, images, 56)}</a>
       <div class="info">
-        <h2 style="font-size:20px;">${player.player_name}</h2>
+        <h2 style="font-size:20px;">
+          <a class="player-link" href="player.html?name=${encodeURIComponent(player.player_name)}">${player.player_name}</a>
+        </h2>
         ${teamLogoHTML(player.team_tag, 24)}
       </div>
     </div>
     <div class="quick-stats">
       <div class="quick-stat"><div class="label">戦績</div><div class="value">${stats.wins}勝${stats.losses}敗</div></div>
       <div class="quick-stat"><div class="label">勝率</div><div class="value">${stats.played ? (stats.winRate * 100).toFixed(0) + "%" : "-"}</div></div>
+      <div class="quick-stat">
+        <div class="label">選手ページ</div>
+        <div class="value" style="font-size:14px;">配信・SNSの推移</div>
+        <a href="player.html?name=${encodeURIComponent(player.player_name)}" style="font-size:12px;">選手詳細</a>
+      </div>
     </div>
     <table class="rank-table">
       <thead><tr><th>節</th><th>使用クラス</th><th>対戦相手</th><th>結果</th><th>配信</th></tr></thead>
@@ -247,12 +269,12 @@ function battleRowHTML(b) {
         <div style="font-size:10px;color:var(--text-muted);">${b.team1}側:${b.fise}</div>
       </td>
       <td>
-        <div>${b.player1}</div>
+        <div>${playerNameLinkHTML(b.player1)}</div>
         ${classPoolHTML(b.class1_pool, b.class1_used, 18)}
       </td>
       <td style="text-align:center;color:var(--text-muted);font-size:11px;">vs</td>
       <td>
-        <div>${b.player2}</div>
+        <div>${playerNameLinkHTML(b.player2)}</div>
         ${classPoolHTML(b.class2_pool, b.class2_used, 18)}
       </td>
       <td>

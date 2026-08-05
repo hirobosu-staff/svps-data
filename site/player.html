@@ -138,6 +138,11 @@ async function boot() {
         <div class="value" style="font-size:14px;">試合結果を見る</div>
         <a href="rounds.html?name=${encodeURIComponent(name)}" style="font-size:12px;">対戦履歴</a>
       </div>
+      <div class="quick-stat">
+        <div class="label">ランクマッチ</div>
+        <div class="value" style="font-size:14px;">期間別のレート</div>
+        <a href="beyond.html?name=${encodeURIComponent(name)}" style="font-size:12px;">BEYOND</a>
+      </div>
     </div>
     ${metrics.length ? `
       <div class="control-row">
