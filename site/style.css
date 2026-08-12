@@ -213,3 +213,112 @@ a.ext-link {
 #leaderboardTableWrap th:nth-child(3), #leaderboardTableWrap td:nth-child(3) { width: auto; }
 #leaderboardTableWrap th:nth-child(4), #leaderboardTableWrap td:nth-child(4) { width: 110px; }
 #leaderboardTableWrap th:nth-child(5), #leaderboardTableWrap td:nth-child(5) { width: 80px; }
+
+/* ============================================================
+   スマートフォン表示（画面幅768px以下）
+   ------------------------------------------------------------
+   このサイトはもともとPCの横幅（main幅980px）前提で作っており、
+   ヘッダーのナビ・順位表・ランキング表などが固定px幅を積み上げる
+   組み方になっていた。そのため狭い画面では合計幅が画面を超えて
+   レイアウトが崩れる（特にranking.htmlの表は固定列幅の合計だけで
+   370px超あり、スマホでは確実に溢れる）。
+   PC表示は一切変えたくないので、スマホ向けの調整はすべてこの
+   メディアクエリの中だけに閉じてある（769px以上には一切影響しない）。
+   ============================================================ */
+@media (max-width: 768px) {
+  /* --- ヘッダー / ナビ --- */
+  /* ナビ5項目は横一列に収まらないので、タイトルとナビを上下に分けたうえで
+     ナビ自体を横スクロールさせる（折り返してヘッダーが分厚くなるのを避ける）。 */
+  header { padding: 10px 12px; gap: 6px; }
+  header h1 { font-size: 13px; flex: 1 1 100%; }
+  nav {
+    flex: 1 1 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav a.nav-btn { padding: 7px 10px 5px; font-size: 12px; white-space: nowrap; }
+
+  main { padding: 14px 12px; }
+
+  /* --- セレクトボックス類 --- */
+  /* min-width:200px のまま横並びにすると画面外にはみ出すため、1行1項目にする。 */
+  .control-row { gap: 10px; }
+  .control-group { flex: 1 1 100%; }
+  select { min-width: 0; width: 100%; }
+
+  /* --- 表の共通調整（余白と文字を詰める） --- */
+  table.rank-table { font-size: 12px; }
+  table.rank-table th { padding: 6px 5px; font-size: 10px; }
+  table.rank-table td { padding: 6px 5px; }
+  .player-link { gap: 5px; }
+  /* 表の中の顔写真を小さくして、選手名に使える幅を確保する
+     （imgはwidth/height属性、フォールバックはstyle属性で寸法を持つので!importantで上書きする） */
+  table.rank-table .avatar,
+  table.rank-table .avatar-fallback { width: 20px !important; height: 20px !important; }
+
+  /* --- トップページのチーム順位表 --- */
+  /* 見出し行（順位/ロゴ/チーム名/WIN/LOSE/W-L DIFF/BATTLE POINT）は
+     スマホ幅では到底収まらないので隠し、代わりに各数値の上へ短いラベルを出す。
+     summaryの直下spanは 1:順位 2:ロゴ 3:チーム名 4〜7:数値 8:▼ の並び。 */
+  .standings-header { display: none; }
+  .team-block summary { padding: 10px 10px; gap: 5px; }
+  .team-block summary .col-rank { width: 16px; }
+  .team-block summary .col-logo { width: 24px; }
+  .team-block summary .col-name { font-size: 12px; line-height: 1.25; min-width: 0; }
+  .team-block summary .col-num { width: 32px; font-size: 13px; }
+  .team-block summary .col-num::before {
+    display: block; font-size: 9px; font-weight: 600; color: var(--text-muted); line-height: 1.4;
+  }
+  /* class指定を併記しているのは、試合結果がまだ無い場合のsummary（ロゴ+チーム名+注記+▼）で
+     4番目のspanがcol-numではないため。col-numを持つ場合だけラベルが付くようにしている。 */
+  .team-block summary .col-num:nth-of-type(4)::before { content: "WIN"; }
+  .team-block summary .col-num:nth-of-type(5)::before { content: "LOSE"; }
+  .team-block summary .col-num:nth-of-type(6)::before { content: "DIFF"; }
+  .team-block summary .col-num:nth-of-type(7)::before { content: "PT"; }
+  .team-block summary .chevron { font-size: 10px; }
+  .team-panel { padding: 12px; }
+
+  /* --- 選手詳細まわり --- */
+  .detail-header { gap: 12px; }
+  .detail-header .info h2 { font-size: 18px; }
+  .quick-stats { gap: 8px; }
+  .quick-stat { min-width: 0; flex: 1 1 calc(50% - 4px); padding: 8px 10px; }
+  .quick-stat .value { font-size: 16px; }
+  .chart-box { padding: 12px; }
+
+  /* --- ランキング表 --- */
+  /* PC用の固定列幅（40+60+auto+200+70）は合計だけで画面幅を超えるので詰める。
+     それでも溢れる指標があるので、念のため横スクロールも許可しておく。 */
+  #rankTableWrap { overflow-x: auto; }
+  #rankTableWrap th:nth-child(1), #rankTableWrap td:nth-child(1) { width: 26px; }
+  #rankTableWrap th:nth-child(2), #rankTableWrap td:nth-child(2) { width: 30px; }
+  #rankTableWrap th:nth-child(4), #rankTableWrap td:nth-child(4) { width: 76px; }
+  #rankTableWrap th:nth-child(5), #rankTableWrap td:nth-child(5) { width: 54px; }
+  td.ext-link-cell { width: 54px; }
+  a.ext-link { min-width: 0; width: 100%; padding: 3px 2px; font-size: 10px; }
+
+  /* --- 通算成績表 --- */
+  #leaderboardTableWrap { overflow-x: auto; }
+  #leaderboardTableWrap th:nth-child(1), #leaderboardTableWrap td:nth-child(1) { width: 26px; }
+  #leaderboardTableWrap th:nth-child(2), #leaderboardTableWrap td:nth-child(2) { width: 30px; }
+  #leaderboardTableWrap th:nth-child(4), #leaderboardTableWrap td:nth-child(4) { width: 72px; }
+  #leaderboardTableWrap th:nth-child(5), #leaderboardTableWrap td:nth-child(5) { width: 46px; }
+
+  /* --- 列数が多くて詰めきれない表は横スクロールで逃がす --- */
+  /* 比較の一覧表(10列)・対戦履歴・節別ROUND表(6列)は、無理に縮めると
+     1文字ずつ折り返されて読めなくなるので、折り返さず横スクロールさせる。 */
+  .table-scroll table.rank-table th,
+  .table-scroll table.rank-table td { white-space: nowrap; }
+  .chart-box { overflow-x: auto; }
+  .chart-box table.rank-table th,
+  .chart-box table.rank-table td { white-space: nowrap; }
+
+  /* BEYONDの表は期間名が長いため、折り返しを許したうえで横スクロールも用意する。 */
+  #tableWrap { overflow-x: auto; }
+
+  /* --- 比較ページの選手チップ --- */
+  .player-chip-list { max-height: 150px; }
+  .players-grid { gap: 10px; }
+}

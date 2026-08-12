@@ -251,10 +251,12 @@ function renderPlayerMatches(app, players, images, matches, battleDetails, name)
         <a href="player.html?name=${encodeURIComponent(player.player_name)}" style="font-size:12px;">選手詳細</a>
       </div>
     </div>
-    <table class="rank-table">
-      <thead><tr><th>節</th><th>使用クラス</th><th>対戦相手</th><th>結果</th><th>配信</th></tr></thead>
-      <tbody>${body}</tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="rank-table">
+        <thead><tr><th>節</th><th>使用クラス</th><th>対戦相手</th><th>結果</th><th>配信</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
   `;
 }
 
