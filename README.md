@@ -21,7 +21,7 @@ svps-tracker/
 │   ├── scrape_ps_results.py    ps.shadowverse-wb.com から PS戦績（個人） を取得（毎日自動）
 │   ├── scrape_youtube.py       各選手のYouTubeチャンネル登録者数を取得（毎日自動、API/スクレイピング併用）
 │   ├── scrape_player_images.py ps.shadowverse-wb.comから選手写真を取得（毎日自動。既にある選手はスキップ）
-│   ├── scrape_result.py        チーム順位（result.json）を外部の公開JSONから取得（毎日自動。詳細は「チーム順位について」参照）
+│   ├── scrape_result.py        チーム順位（result.json）を公式サイトの試合スコアから集計（毎日自動。詳細は「チーム順位について」参照）
 │   ├── scrape_svlabo.py        svlabo.jp から ランクマッチ最高順位・レート を取得（★自動実行からは除外。手動で使う用に残してあるだけ）
 │   ├── scrape_svlabo_battle_details.py  svlabo.jpの「N節 試合詳細結果＆配信時間指定URL」記事を取り込む
 │   │                             （★自動実行からは除外。新しい節の記事が出たらURLを渡して手動実行。詳細は「節別詳細結果について」参照）
@@ -249,9 +249,22 @@ URL（`blog-entry-XXXX.html`）に規則性が無いため新記事の自動発�
 
 ```
 cd scripts
-python scrape_svlabo_battle_details.py https://svlabo.jp/blog-entry-1793.html 1 https://svlabo.jp/blog-entry-1800.html 2
-python update_history.py の実行は不要（このデータはhistory.csvとは別経路）
+# 1記事に4ROUND全部入っている節（第3節など）はsectionだけ渡す
+python scrape_svlabo_battle_details.py https://svlabo.jp/blog-entry-1834.html 3
+
+# 前半戦/後半戦で記事が分かれている節（第4節など）は section:half の形で明示する
+python scrape_svlabo_battle_details.py \
+  https://svlabo.jp/blog-entry-1839.html 4:前半戦 \
+  https://svlabo.jp/blog-entry-1851.html 4:後半戦
+
+# update_history.py の実行は不要（このデータはhistory.csvとは別経路）
 ```
+
+**`前半戦`/`後半戦`の指定について**: 節によって記事の作られ方が違います。第3節のように1日開催で
+1記事に4ROUND全部載る場合と、第4節のように前半（8/5）・後半（8/12）で記事自体が分かれる場合があります。
+`half`を省略すると「1記事に4ROUND入っている」前提の自動判定（3カード目に入ったら後半戦とみなす）に
+なるため、**分割記事でこれを省略すると後半戦の記事まで前半戦として記録されます**。記事タイトルに
+「前半戦」「後半戦」と入っている場合は必ず明示してください。
 
 記事ページには表示用HTMLとは別に、対戦データそのものがJSオブジェクト（`battle_info`, `tour_info`）として
 `<script>`タグ内に埋め込まれています。これは公式に文書化されたものではなく、ブラウザで実際に開いて調査して
@@ -349,23 +362,34 @@ python update_history.py の実行は不要（このデータはhistory.csvと�
 | 7 | RDL | RIDDLE ORDER |
 | 8 | LVH | レバンガ北海道 |
 
-各項目の意味:
+各項目の意味（1ROUND＝チーム対チームの1試合。複数バトルで構成され、先に3バトル取った側が勝ち）:
 
-- `win` / `lose`: そのチームの試合単位の勝敗数（1節につき1試合）
-- `diff`: 得失差の累計（勝った試合は+、負けた試合は-。例: 3-1で勝ったら+2）
-- `battlepoint`: そのチームが獲得した個人戦の勝ち数の累計（＝公式サイトの対戦カードに出るスコアの合計。
-  例: 3-1で勝ったら3、1-3で負けたら1）。この値の大小で順位を決めています。
+- `win` / `lose`: ROUND単位の勝敗数
+- `diff`: バトル単位の得失差。全ROUNDの「自分のバトル勝ち数 − 相手のバトル勝ち数」の合計
+  （例: 3-1で勝ったら+2、1-3で負けたら-2）。8チーム合計は必ず0になります
+- `battlepoint`: バトル単位の勝ち数の累計（負けた分は引かない。例: 3-1で勝ったら3、1-3で負けたら1）。
+  この値の大小で順位を決め、同点なら`diff`で並べます
 
-**このファイルは`scrape_result.py`が毎日自動取得します。**
-取得元は`https://uthomeless-public-tool.github.io/2026ps/data/result.json`（別プロジェクトとして
-運用している予想サイト「2026ps」が公開しているJSON）です。スキーマが完全に同じため変換なしで
-そのまま`data/result.json`に保存しています。取得に失敗した場合（サイト側が落ちている・想定外の
-形式など）は既存の`data/result.json`をそのまま残し、上書きしません（`scrape_result.py`内で保証）。
+**このファイルは`scrape_result.py`が毎日自動生成します。**
+取得元は公式サイト`https://ps.shadowverse-wb.com/26-27/schedule-results/`です。
+各ROUNDのスコア（例「Crazy Raccoon 3 - 1 ZETA DIVISION」）だけを読み取り、上記4項目はすべて
+こちら側で計算しています。この計算方法は第1〜4節の全16ROUNDで公式順位表と突き合わせ、
+8チーム全項目が一致することを確認済みです。
 
-上記の取得元URLが将来使えなくなった場合や、値を一時的に手で直したい場合は、これまで通り
-`data/result.json`をGitHub上で直接編集して`win`/`lose`/`diff`/`battlepoint`を更新・pushすることも
-できます（`scrape_result.py`は次回実行時に取得元URLの値で再度上書きするので、恒久的な手動運用に
-したい場合はワークフローから該当ステップを外してください）。
+> 以前は別プロジェクトの予想サイト（uthomeless-public-tool）が公開しているJSONをそのまま
+> コピーしていましたが、公式が結果を出してもあちら側を手で更新するまで順位が古いままになる
+> という問題があったため、公式から直接計算する方式に変更しました。外部ツールへの依存はありません。
+
+取得や検算に失敗した場合は、既存の`data/result.json`を一切書き換えずに終了します。検算の内容は
+「実施済みの試合が1件以上読めているか」「得失差の合計が0か」「勝敗数の合計が試合数と一致するか」
+「players.csvに無いチーム名が出てきていないか」の4点です。1つでも落ちればスクリプトは異常終了し、
+既存ファイルはそのまま残ります（ワークフロー側は`continue-on-error: true`なので他の処理は続きます）。
+
+`status`と`confirmed_odds`は手動で設定しうる項目なので、既存ファイルの値をそのまま引き継ぎます。
+
+値を一時的に手で直したい場合は`data/result.json`を直接編集してpushすることもできますが、
+次回実行時に公式サイトの値で再計算・上書きされます。恒久的に手動運用したい場合はワークフローから
+該当ステップを外してください。
 
 まだ一度もデータがない（8チーム全員 win=lose=0）場合は、`site/common.js`の
 `computeTeamStandings()`が自動的に`data/match_results.csv`（選手個人の試合結果の集計）から

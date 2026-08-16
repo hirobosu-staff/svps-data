@@ -68,7 +68,14 @@ def pool_names(digits: str) -> str:
     return "|".join(CLASS_MAP[int(d)] for d in digits)
 
 
-def scrape_section(page, url: str, section: int):
+def scrape_section(page, url: str, section: int, half: str = None):
+    """halfを指定すると、その記事の全ROUNDをその前半戦/後半戦として扱う。
+    節によって記事の作られ方が違うため:
+      - 第3節のように1記事に4ROUND全部入っている場合  -> half=None（下の自動判定に任せる）
+      - 第4節のように前半戦/後半戦で記事が分かれている場合 -> half="前半戦" / "後半戦" を明示
+    自動判定は「1記事に4ROUND入っている」前提なので、分割記事にそのまま使うと
+    後半戦の記事まで前半戦として記録されてしまう（実際に第4節でその状態になった）。
+    """
     page.goto(url, wait_until="networkidle")
     page.wait_for_timeout(1000)
 
@@ -91,19 +98,17 @@ def scrape_section(page, url: str, section: int):
         )
 
     # team1/team2の組が変わるたびに新しい「ROUND」とみなす（記事の見出し前半戦/後半戦R1/R2に対応）。
-    # ROUND数は4つ固定という保証はない（節によって前半/後半それぞれ何組かは変わりうる）ため、
-    # 「同じチーム対戦カードが連続している間は同じROUND」というグルーピングにしている。
+    # 「同じチーム対戦カードが連続している間は同じROUND」というグルーピング。
+    #
+    # halfが指定されていればそれを全ROUNDに使い、round_noは1から数え直す（分割記事用）。
+    # 指定が無い場合だけ、1記事に4ROUND入っている前提で「3カード目に入ったら後半戦」と
+    # 自動判定する（第3節のような1記事完結型のための後方互換）。
+    fixed_half = half
     rows = []
     round_idx = 0
-    half = "前半戦"
+    half = fixed_half or "前半戦"
     prev_pair = None
-    seen_pairs_in_half = 0
     battle_no = 0
-    half_switch_pair_count = None  # 前半戦のROUND数が分かった後、後半戦への切り替えは呼び出し側で明示的に指定できないので、
-    # ここではチームの並びが一周して重複し始めたタイミングでは判定できない。そのため簡便に
-    # 「pair(team1,team2)が変わるたび round_no を進め、round_noが3つ目に入ったら後半戦」とはせず、
-    # 実際のROUND境界はチームの組が変わったタイミングのみで判定する。前半/後半の境目は
-    # 「ROUNDが2つ終わったら後半戦」という前提（8チーム→4カード、前半2カード+後半2カードの構成）で扱う。
     pair_count = 0
 
     for i, b in enumerate(battle_info):
@@ -113,7 +118,7 @@ def scrape_section(page, url: str, section: int):
             round_idx += 1
             battle_no = 0
             prev_pair = pair
-            if pair_count == 3:
+            if fixed_half is None and pair_count == 3:
                 half = "後半戦"
                 round_idx = 1
         battle_no += 1
@@ -125,7 +130,7 @@ def scrape_section(page, url: str, section: int):
         rows.append({
             "section": section,
             "half": half,
-            "round_no": round_idx if round_idx <= 2 else round_idx - 2,
+            "round_no": round_idx if (fixed_half or round_idx <= 2) else round_idx - 2,
             "battle_no": battle_no,
             "team1": norm_team(b["team1"]),
             "team2": norm_team(b["team2"]),
@@ -161,26 +166,46 @@ def merge(existing_rows, new_rows):
     )
 
 
-def main():
-    args = sys.argv[1:]
+def parse_args(args):
+    """<url> <section> または <url> <section>:<half> の並びを解釈する。
+    halfは「前半戦」「後半戦」のいずれか。省略時はNone（記事内の並びから自動判定）。"""
     if not args or len(args) % 2 != 0:
+        return None
+    pairs = []
+    for i in range(0, len(args), 2):
+        url, spec = args[i], args[i + 1]
+        half = None
+        if ":" in spec:
+            spec, half = spec.split(":", 1)
+            if half not in ("前半戦", "後半戦"):
+                print(f"[svlabo_battle_details] 不正なhalf指定: {half}", file=sys.stderr)
+                return None
+        pairs.append((url, int(spec), half))
+    return pairs
+
+
+def main():
+    pairs = parse_args(sys.argv[1:])
+    if pairs is None:
         print(
-            "Usage: python scrape_svlabo_battle_details.py <url1> <section1> [<url2> <section2> ...]\n"
-            "Example: python scrape_svlabo_battle_details.py "
-            "https://svlabo.jp/blog-entry-1793.html 1 https://svlabo.jp/blog-entry-1800.html 2",
+            "Usage: python scrape_svlabo_battle_details.py <url1> <section1>[:<half1>] [<url2> <section2>[:<half2>] ...]\n"
+            "  <half> は 前半戦 / 後半戦。記事が前半戦・後半戦で分かれている節では必ず指定する\n"
+            "  （指定しないと1記事に4ROUND入っている前提の自動判定になり、後半戦の記事も前半戦として記録される）。\n"
+            "Example (1記事完結の節):   python scrape_svlabo_battle_details.py https://svlabo.jp/blog-entry-1834.html 3\n"
+            "Example (前後半で分かれる節): python scrape_svlabo_battle_details.py "
+            "https://svlabo.jp/blog-entry-1839.html 4:前半戦 https://svlabo.jp/blog-entry-1851.html 4:後半戦",
             file=sys.stderr,
         )
         sys.exit(1)
-
-    pairs = [(args[i], int(args[i + 1])) for i in range(0, len(args), 2)]
 
     new_rows = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(locale="ja-JP")
-        for url, section in pairs:
-            rows = scrape_section(page, url, section)
-            print(f"[svlabo_battle_details] {url} (section={section}): {len(rows)} battles parsed")
+        for url, section, half in pairs:
+            rows = scrape_section(page, url, section, half)
+            label = f"section={section}" + (f", half={half}" if half else ", half=自動判定")
+            print(f"[svlabo_battle_details] {url} ({label}): {len(rows)} battles parsed")
             new_rows.extend(rows)
         browser.close()
 
