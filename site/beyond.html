@@ -12,7 +12,8 @@
   <nav>
     <a class="nav-btn" href="index.html">選手一覧</a>
     <a class="nav-btn" href="ranking.html">ランキング</a>
-    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="rounds.html">通算成績</a>
+    <a class="nav-btn" href="sections.html">節別結果</a>
     <a class="nav-btn" href="compare.html">比較</a>
     <a class="nav-btn active" href="beyond.html">BEYOND</a>
   </nav>
@@ -49,11 +50,16 @@ function displayPlayerName(rawTag, rawName) {
   return rawName;
 }
 
+// 選手名をクリックしたら、このページ内でその選手を検索した状態（?name=選手名）に飛ぶ。
+// svlaboの掲載者はPS選手より一般ユーザーの方が圧倒的に多く、そちらは選手詳細ページを
+// 持たないため、以前は大半の名前がただのテキストで何も起きなかった。全期間×全クラスを
+// 横断したその人の戦績を見たい、というのがこの一覧での自然な操作なので、全員分を
+// 検索リンクにしている（PS選手の選手詳細へは、検索結果の上に出るリンクから辿れる）。
+// 検索語には表示名（タグ持ちなら「あいむ｜UFV」の形）をそのまま使う。生のplayer_nameだけだと
+// タグ持ちの人は「UFV」で検索することになり、同じ名前の別人まで拾ってしまうため。
 function playerNameCellHTML(rawTag, rawName) {
   const display = displayPlayerName(rawTag, rawName);
-  const p = lookupPlayer(playerLookup, rawName);
-  if (p) return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${display}</a>`;
-  return display;
+  return `<a class="player-link" href="beyond.html?name=${encodeURIComponent(display)}">${display}</a>`;
 }
 
 // チームに所属していないのはこの一覧では普通のこと（PS選手の方が少数派）なので、
@@ -102,6 +108,18 @@ function rankRowClass(rank) {
 
 // 選手検索モード: 期間・クラス・指標の絞り込みを無視して、名前が一致する行を
 // 全期間×全クラス横断でそのまま列挙する（svlaboの生データをそのまま見せる）。
+// 検索している名前がPS出場選手と一致する場合だけ、選手詳細ページへの導線を出す。
+// 選手名リンクの行き先をこのページ内検索に変えたことで player.html へ辿れなくなるのを補う。
+function searchHeaderHTML(rows) {
+  const names = [...new Set(rows.map(r => r.player_name))];
+  const matched = names.map(n => lookupPlayer(playerLookup, n)).filter(Boolean);
+  const seen = new Set();
+  const links = matched.filter(p => !seen.has(p.player_name) && seen.add(p.player_name))
+    .map(p => `<a href="player.html?name=${encodeURIComponent(p.player_name)}" style="font-size:13px;">${p.player_name}の選手詳細</a>`);
+  if (!links.length) return "";
+  return `<div style="margin-bottom:12px; display:flex; gap:14px; flex-wrap:wrap;">${links.join("")}</div>`;
+}
+
 function renderSearchResults(container) {
   const q = normalizeName(filters.query);
   const rows = svlabo.filter(r => normalizeName(r.player_name).includes(q) || normalizeName(displayPlayerName(r.team_tag, r.player_name)).includes(q));
@@ -117,6 +135,7 @@ function renderSearchResults(container) {
     </tr>`).join("");
 
   container.innerHTML = rows.length ? `
+    ${searchHeaderHTML(rows)}
     <table class="rank-table">
       <thead><tr><th>期間</th><th>クラス</th><th>順位</th><th>チーム</th><th>選手</th><th>レート</th></tr></thead>
       <tbody>${body}</tbody>

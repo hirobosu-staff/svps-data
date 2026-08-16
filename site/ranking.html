@@ -12,7 +12,8 @@
   <nav>
     <a class="nav-btn" href="index.html">選手一覧</a>
     <a class="nav-btn active" href="ranking.html">ランキング</a>
-    <a class="nav-btn" href="rounds.html">対戦成績</a>
+    <a class="nav-btn" href="rounds.html">通算成績</a>
+    <a class="nav-btn" href="sections.html">節別結果</a>
     <a class="nav-btn" href="compare.html">比較</a>
     <a class="nav-btn" href="beyond.html">BEYOND</a>
   </nav>
@@ -37,7 +38,7 @@
 //    「順位が指定しきい値(10/30/50/100)以内だった回数」でランキングする。期間ではなく
 //    しきい値を選ぶ専用のセレクトボックスに差し替える。
 const CURRENT_METRICS = ["followers", "youtube_subscribers"];
-const EXCLUDED_PREFIXES = ["ps_win", "ps_point", "cr_"]; // PS戦績は対戦成績ページ(rounds.html)にまとまっているのでランキングには出さない、cr_*(生データ)はcr_topN_countに統合
+const EXCLUDED_PREFIXES = ["ps_win", "ps_point", "cr_"]; // PS戦績は通算成績ページ(rounds.html)にまとまっているのでランキングには出さない、cr_*(生データ)はcr_topN_countに統合
 const CUMULATIVE_PERIOD_VALUE = "__cumulative__";
 
 function isCurrentMetric(m) { return CURRENT_METRICS.includes(m); }

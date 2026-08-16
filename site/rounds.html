@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>対戦成績 | Shadowverse Premier Series 26-27 選手データ</title>
+<title>通算成績 | Shadowverse Premier Series 26-27 選手データ</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,8 @@
   <nav>
     <a class="nav-btn" href="index.html">選手一覧</a>
     <a class="nav-btn" href="ranking.html">ランキング</a>
-    <a class="nav-btn active" href="rounds.html">対戦成績</a>
+    <a class="nav-btn active" href="rounds.html">通算成績</a>
+    <a class="nav-btn" href="sections.html">節別結果</a>
     <a class="nav-btn" href="compare.html">比較</a>
     <a class="nav-btn" href="beyond.html">BEYOND</a>
   </nav>
@@ -23,25 +24,18 @@
 
 <script src="common.js"></script>
 <script>
-// このページは「PS公式戦の対戦成績」まわりを1つにまとめたページ。以前は「試合結果」
-// （通算成績リーダーボード・個人の対戦履歴）と「節別詳細」（svlabo.jp由来の節ごとの詳細・
-// 配信リンク）で別々のナビ項目に分かれていたが、名前も内容も紛らわしかったため統合した。
+// このページは「選手ごとの通算成績」。
 // - ?name=選手名 が付いていれば、その選手の個人成績（対戦履歴・配信リンク）を表示
-// - それ以外は「通算成績」(全選手リーダーボード) か「節別に見る」(節ごとの詳細) を
-//   ページ内のボタンで切り替えられる
-// 節別詳細（svlabo.jp由来）に出てくる選手名から選手ページへリンクするための対応表。
-// battle_details.csvは選手名しか持っていないので、players.csvと突き合わせて
-// 実在する選手だけリンクにする（「チームバトル」など選手以外の行はリンクにしない）。
-let playerLookup = {};
-function playerNameLinkHTML(rawName) {
-  const p = lookupPlayer(playerLookup, rawName);
-  if (!p) return rawName;
-  return `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${rawName}</a>`;
-}
+// - それ以外は全選手のリーダーボードを表示
+// 節ごとのROUND/BATTLE詳細は sections.html（ナビの「節別結果」）に分離した。
+// 以前はこのページ内のボタンで切り替える作りだったが、見る目的が別物で利用頻度も高いため、
+// ナビの第1階層に独立させている。
 
 async function boot() {
   const app = document.getElementById("app");
   const params = new URLSearchParams(location.search);
+  // 節別詳細は sections.html に分離したので、旧URLで来た人はそちらへ転送する
+  if (params.get("view") === "sections") { location.replace("sections.html"); return; }
   const name = params.get("name");
 
   let data, matches, battleDetails;
@@ -52,41 +46,18 @@ async function boot() {
     return;
   }
   const { players, images } = data;
-  playerLookup = buildPlayerLookup(players);
 
   if (name) {
     renderPlayerMatches(app, players, images, matches, battleDetails, name);
     return;
   }
 
-  if (!matches.length && !battleDetails.length) {
+  if (!matches.length) {
     app.innerHTML = `<div class="empty-note">まだ対戦データがありません</div>`;
     return;
   }
 
-  const initialMode = params.get("view") === "sections" ? "sections" : "leaderboard";
-  renderModeSwitcher(app, players, images, matches, battleDetails, initialMode);
-}
-
-function renderModeSwitcher(app, players, images, matches, battleDetails, mode) {
-  app.innerHTML = `
-    <div class="team-select-row" style="margin-bottom:14px;">
-      <button class="team-select-btn ${mode === "leaderboard" ? "active" : ""}" id="modeLeaderboardBtn"
-        style="${mode === "leaderboard" ? "background:var(--accent);" : ""}">通算成績</button>
-      <button class="team-select-btn ${mode === "sections" ? "active" : ""}" id="modeSectionsBtn"
-        style="${mode === "sections" ? "background:var(--accent);" : ""}">節別に見る</button>
-    </div>
-    <div id="modeContent"></div>
-  `;
-  document.getElementById("modeLeaderboardBtn").addEventListener("click", () => renderModeSwitcher(app, players, images, matches, battleDetails, "leaderboard"));
-  document.getElementById("modeSectionsBtn").addEventListener("click", () => renderModeSwitcher(app, players, images, matches, battleDetails, "sections"));
-
-  const content = document.getElementById("modeContent");
-  if (mode === "sections") {
-    renderSectionsView(content, battleDetails);
-  } else {
-    renderLeaderboard(content, players, images, matches);
-  }
+  renderLeaderboard(app, players, images, matches);
 }
 
 // 勝敗数(戦績)は1勝=1ptなので、獲得ポイントは戦績と完全に重複する情報として列自体を削除している。
@@ -258,89 +229,6 @@ function renderPlayerMatches(app, players, images, matches, battleDetails, name)
       </table>
     </div>
   `;
-}
-
-// --- 節別に見る（svlabo.jpの節別記事から取り込んだ、ROUND/BATTLEごとの使用/未使用クラス・配信URL） ---
-
-function battleRowHTML(b) {
-  const t1win = b.winlose === "WIN";
-  return `
-    <tr>
-      <td>
-        BATTLE${b.battle_no}
-        <div style="font-size:10px;color:var(--text-muted);">${b.team1}側:${b.fise}</div>
-      </td>
-      <td>
-        <div>${playerNameLinkHTML(b.player1)}</div>
-        ${classPoolHTML(b.class1_pool, b.class1_used, 18)}
-      </td>
-      <td style="text-align:center;color:var(--text-muted);font-size:11px;">vs</td>
-      <td>
-        <div>${playerNameLinkHTML(b.player2)}</div>
-        ${classPoolHTML(b.class2_pool, b.class2_used, 18)}
-      </td>
-      <td>
-        <span class="result-badge ${t1win ? "win" : "lose"}">${b.team1} ${t1win ? "勝ち" : "負け"}</span>
-      </td>
-      <td>${b.video_url ? `<a href="${b.video_url}" target="_blank" rel="noopener" style="font-size:12px;">配信</a>` : "-"}</td>
-    </tr>`;
-}
-
-function renderSectionsView(container, battleDetails) {
-  if (!battleDetails.length) {
-    container.innerHTML = `<div class="empty-note">まだ節別詳細のデータがありません</div>`;
-    return;
-  }
-  const sections = [...new Set(battleDetails.map(b => b.section))].sort((a, b) => a - b);
-  container.innerHTML = `
-    <div class="control-row">
-      <div class="control-group">
-        <label>節</label>
-        <select id="sectionSelect">${sections.map(s => `<option value="${s}">${s}節</option>`).join("")}</select>
-      </div>
-    </div>
-    <div id="roundsWrap"></div>
-  `;
-  const sel = container.querySelector("#sectionSelect");
-  sel.addEventListener("change", () => renderSection(container, battleDetails, sel.value));
-  renderSection(container, battleDetails, sel.value);
-}
-
-function renderSection(container, battleDetails, section) {
-  const rows = battleDetails.filter(b => b.section === section);
-
-  // half+round_noでグルーピングしつつ、元の並び順（前半戦R1→前半戦R2→後半戦R1→後半戦R2）を保つ
-  const groups = {};
-  const order = [];
-  rows.forEach(b => {
-    const key = b.half + "|" + b.round_no;
-    if (!groups[key]) { groups[key] = []; order.push(key); }
-    groups[key].push(b);
-  });
-
-  const html = order.map(key => {
-    const list = groups[key];
-    const first = list[0];
-    const body = list.map(battleRowHTML).join("");
-    return `
-      <div class="chart-box" style="margin-bottom:16px;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-          <span style="font-weight:700; font-size:13px; color:var(--text-muted);">${first.half} ROUND ${first.round_no}</span>
-          <span style="flex:1;"></span>
-          ${teamLogoHTML(first.team1, 26)}
-          <span style="font-size:13px; font-weight:600;">${first.team1}</span>
-          <span style="color:var(--text-muted); font-size:12px;">vs</span>
-          ${teamLogoHTML(first.team2, 26)}
-          <span style="font-size:13px; font-weight:600;">${first.team2}</span>
-        </div>
-        <table class="rank-table">
-          <thead><tr><th>BATTLE</th><th>${first.team1}側</th><th></th><th>${first.team2}側</th><th>結果</th><th>配信</th></tr></thead>
-          <tbody>${body}</tbody>
-        </table>
-      </div>`;
-  }).join("");
-
-  container.querySelector("#roundsWrap").innerHTML = html;
 }
 
 boot();
