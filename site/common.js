@@ -445,6 +445,21 @@ function assignCompetitionRanks(list, keyFn) {
   });
 }
 
+// チーム順位の並び順。公式のチームランキングと同じ優先順位で比較する。
+//   1. ROUND WIN   … 試合(ROUND)単位の勝ち数
+//   2. BP DIFF     … バトル単位の得失差
+//   3. BATTLE POINT… バトル単位の勝ち数の累計
+//
+// 節の前半だけ終わっている時期は消化試合数がチーム間で揃わない（5試合消化と4試合消化が混在する）。
+// BATTLE POINTは試合を消化するほど増えるだけの累計値なので、これを最優先にすると
+// 「単に多く試合をしただけのチーム」が上に来てしまう。最終的には全チーム14試合を戦うので、
+// 途中経過は累計ポイントではなく勝ち数を主軸に見る、というのが公式の扱い。
+// （以前はBATTLE POINTを最優先にしていたため、公式の順位と食い違っていた）
+function compareTeamStandings(a, b) {
+  return b.wins - a.wins || b.diff - a.diff || b.points - a.points;
+}
+function teamStandingRankKey(t) { return `${t.wins}|${t.diff}|${t.points}`; }
+
 // 8チームを「現在の順位」で並べる。
 // 優先順位:
 //   1. data/result.json に実データがあればそれを使う（手動更新される公式の勝敗・得失差・獲得ポイント）
@@ -472,10 +487,10 @@ function computeTeamStandings(players, matches, resultJson) {
       teams[tag].diff = t.diff || 0;
     });
     const list = Object.values(teams);
-    list.sort((a, b) => b.points - a.points || b.diff - a.diff || b.wins - a.wins);
-    // 同ポイント・同得失差・同勝数のチームは同着として同じ順位にする（公式の見せ方に合わせる。
+    list.sort(compareTeamStandings);
+    // 勝ち数・得失差・獲得ポイントが全て同じチームは同着として同じ順位にする（公式の見せ方に合わせる。
     // 例: 2位が2チームなら両方2位、次のチームは3位ではなく4位になる）。
-    assignCompetitionRanks(list, t => `${t.points}|${t.diff}|${t.wins}`);
+    assignCompetitionRanks(list, teamStandingRankKey);
     return { list, source: "result.json" };
   }
 
@@ -518,8 +533,8 @@ function computeTeamStandings(players, matches, resultJson) {
   const list = Object.values(teams);
   const hasMatches = matches.length > 0;
   if (hasMatches) {
-    list.sort((a, b) => b.points - a.points || b.diff - a.diff || b.wins - a.wins);
-    assignCompetitionRanks(list, t => `${t.points}|${t.diff}|${t.wins}`);
+    list.sort(compareTeamStandings);
+    assignCompetitionRanks(list, teamStandingRankKey);
   }
   return { list, source: hasMatches ? "match_results.csv" : "none" };
 }
