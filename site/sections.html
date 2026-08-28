@@ -53,12 +53,16 @@ function renderSectionsView(container, battleDetails) {
     container.innerHTML = `<div class="empty-note">まだ節別詳細のデータがありません</div>`;
     return;
   }
+  // 選択肢は節番号の小さい順に並べるが、初期選択は一番大きい節（＝最新節）にする。
+  // 見たいのはたいてい直近の結果なので、開いた時点でそれが出ている方が手数が少ない。
   const sections = [...new Set(battleDetails.map(b => b.section))].sort((a, b) => a - b);
+  const latest = sections[sections.length - 1];
   container.innerHTML = `
     <div class="control-row">
       <div class="control-group">
         <label>節</label>
-        <select id="sectionSelect">${sections.map(s => `<option value="${s}">${s}節</option>`).join("")}</select>
+        <select id="sectionSelect">${sections.map(s =>
+          `<option value="${s}"${s === latest ? " selected" : ""}>${s}節</option>`).join("")}</select>
       </div>
     </div>
     <div id="roundsWrap"></div>
