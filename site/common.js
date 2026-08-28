@@ -508,7 +508,10 @@ function computeTeamStandings(players, matches, resultJson) {
 
     const oppTag = m.opponent_team_tag;
     if (!oppTag || oppTag === "?" || !teams[oppTag]) return; // 対戦相手が特定できない行は試合単位の勝敗集計からは除外
-    const pairKey = m.round + "|" + [m.team_tag, oppTag].sort().join("-");
+    // 1ROUNDを一意に指すキー。section/half/round_no が入るようになったのでそれを使う
+    // （以前はround＝試合日だけだったので、同じ日に同じカードが複数ある構成に弱かった）。
+    const roundKey = [m.section, m.half, m.round_no].join("/");
+    const pairKey = roundKey + "|" + [m.team_tag, oppTag].sort().join("-");
     if (!cardMap[pairKey]) cardMap[pairKey] = {};
     cardMap[pairKey][m.team_tag] = (cardMap[pairKey][m.team_tag] || 0) + (parseFloat(m.point) || 0);
   });

@@ -35,7 +35,12 @@ from common import DATA_DIR, SNAPSHOT_DIR, HISTORY_CSV, today_str, load_players,
 FIELDNAMES = ["date", "team_tag", "player_name", "metric", "period", "value"]
 
 MATCH_RESULTS_CSV = os.path.join(DATA_DIR, "match_results.csv")
+# section / half / round_no / battle_no は公式サイトのリニューアル後に取れるようになった項目。
+# 以前は日付(round)しか持っておらず、表示側が「日付の通し番号＝節番号」と推測していたため、
+# 1節が前半/後半の2日に分かれる構成を扱えず第5節を第8節と表示していた。節番号を実データとして
+# 持つことでその推測を廃止した。
 MATCH_FIELDNAMES = [
+    "section", "half", "round_no", "battle_no",
     "round", "date", "team_tag", "player_name", "class", "result", "point",
     "opponent_team_tag", "opponent_name", "opponent_class",
 ]
@@ -159,6 +164,10 @@ def match_rows_from_ps_results(snapshot, name_index):
 
         rows.append(
             {
+                "section": r.get("section", ""),
+                "half": r.get("half", ""),
+                "round_no": r.get("round_no", ""),
+                "battle_no": r.get("battle_no", ""),
                 "round": r["round"],
                 "date": r["date"],
                 "team_tag": team_tag,
@@ -197,15 +206,36 @@ def load_existing_matches():
         return list(csv.DictReader(f))
 
 
+def _match_key(r):
+    """試合結果の重複排除キー（scrape日は含めない）。
+    以前は (round, player_name) だったが、roundは日付文字列なので、パースが壊れて
+    round="match_14" / player_name="ネメシス" のようなゴミ行が出た時に「毎回新しいキー」に
+    なってしまい、既存行を上書きせず153行も積み上がった。節・前半後半・ROUND・BATTLE番号を
+    キーにすることで、同じバトルは必ず同じキーになり増殖しない。"""
+    return (str(r.get("section", "")), str(r.get("half", "")),
+            str(r.get("round_no", "")), str(r.get("battle_no", "")), r["player_name"])
+
+
+def _is_sane(r):
+    """旧スキーマの行やパース事故で入り込んだ行を落とすための最低限の判定。
+    section が数字で入っていて、resultがWIN/LOSEであることを要求する。"""
+    return str(r.get("section", "")).isdigit() and r.get("result") in ("WIN", "LOSE")
+
+
 def merge_matches(existing_rows, new_rows):
-    """試合結果は (round, player_name) をキーにして重複排除する（scrape日を含めない）。
-    同じ試合を毎日再取得しても「新しい試合として増殖」しないようにするための重要な設計。
-    dateは「最後に観測した日」として上書き更新する。"""
-    key = lambda r: (r["round"], r["player_name"])
-    merged = {key(r): r for r in existing_rows}
+    """同じ試合を毎日再取得しても「新しい試合として増殖」しないように重複排除する。
+    既存行のうち、節番号を持たない旧スキーマの行やパース事故のゴミ行はここで落とす。"""
+    merged = {}
+    for r in existing_rows:
+        if _is_sane(r):
+            merged[_match_key(r)] = r
     for r in new_rows:
-        merged[key(r)] = {k: str(r[k]) for k in MATCH_FIELDNAMES}
-    return sorted(merged.values(), key=lambda r: (r["round"], r["team_tag"], r["player_name"]))
+        merged[_match_key(r)] = {k: str(r[k]) for k in MATCH_FIELDNAMES}
+    return sorted(
+        merged.values(),
+        key=lambda r: (int(r["section"]), r["half"] == "後半", int(r["round_no"]),
+                       int(r["battle_no"]), r["team_tag"], r["player_name"]),
+    )
 
 
 def main():

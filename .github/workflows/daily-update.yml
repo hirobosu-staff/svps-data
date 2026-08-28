@@ -44,6 +44,9 @@ jobs:
       - name: Scrape ps.shadowverse-wb.com
         working-directory: scripts
         run: python scrape_ps_results.py
+        # 失敗時はスナップショットを書かずに終了するので、既存のmatch_results.csvは維持される
+        # （スクリプト側の検算で担保。2026-08-27に公式サイトのリニューアルでパースが崩れ、
+        #  壊れた行が153行書き込まれた事故を受けて検算を追加した）。
         continue-on-error: true
 
       - name: Scrape YouTube subscriber counts
@@ -54,8 +57,15 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
 
       - name: Fetch player photos
+        # 選手写真はほぼ変化しない（新規参戦選手が出た時くらい）ので毎日実行する意味が無い。
+        # 月1回、月初(UTC換算で1日)だけ実行する。
         working-directory: scripts
-        run: python scrape_player_images.py
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then
+            python scrape_player_images.py
+          else
+            echo "Skipping (only runs on the 1st of the month, today is $(date -u +%d))"
+          fi
         continue-on-error: true  # 写真は既にある選手はスキップするので、失敗しても他の処理は続ける
 
       - name: Fetch team standings (result.json)

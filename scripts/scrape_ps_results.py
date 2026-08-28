@@ -1,34 +1,55 @@
 """公式サイト ps.shadowverse-wb.com の「SCHEDULE & RESULTS」から、
-選手個人の試合結果（使用クラス・勝敗・獲得ポイント）をスクレイピングする。
+選手個人の試合結果（使用クラス・勝敗・対戦相手・節/前半後半/ROUND/BATTLE番号）を取得する。
 
 対象ページ: https://ps.shadowverse-wb.com/26-27/schedule-results/
-消化済みの各試合カードにある「試合結果詳細」ボタンをクリックするとモーダルが開き、
-選手ごとの対戦（BATTLE 1, 2, ...）の勝敗・使用クラス・獲得ポイントが表示される。
-このデータはJS実行後に描画される（生HTMLには入っていない）ため、Playwrightでのクリック操作が必須。
+消化済みの各ROUNDにある「試合結果詳細」ボタンを押すとモーダルが開き、
+BATTLE 1..N ごとの選手名・使用クラス・勝敗が表示される。
+このデータはJS実行後に描画されるため、Playwrightでのクリック操作が必須。
+
+--- 2026-08-27のリニューアルについて（この書き換えの理由） ---
+公式サイトが全面リニューアル（Svelte製に作り直し）され、DOMもテキストの並びも変わった。
+旧実装はモーダルのinnerTextを「名前/クラス/+1pt/勝敗/BATTLE n/VS/勝敗/名前/クラス」という
+"並び順の決め打ち"で読んでいたため、次の2点の変更で完全に破綻した。
+
+    旧: ふえた / ロイヤル / +1pt / WIN / BATTLE 1 / VS / LOSE / CQCQ / ウィッチ
+    新: ふえた / ロイヤル / WIN / BATTLE 1 / VS / CQCQ / ウィッチ / LOSE
+
+    1. "+1pt" バッジが廃止された
+    2. 右側の並びが「勝敗→名前→クラス」から「名前→クラス→勝敗」に変わった
+
+結果としてフィールドが1つずつズレ、player_nameにクラス名、classに勝敗、resultに選手名が
+入った行が153行もCSVに混入した。さらに日付見出しが "2026.07.11(SAT) 13:00~" の1行から
+"2026.07.11" / "(SAT)" / "13:00~" の3要素に分割されたため日付の正規表現も外れ、
+round列が "match_0".."match_19" というダミー値になっていた。
+
+そこで並び順に依存しない**DOM構造ベース**に作り直した。新しいモーダルは
+1バトル = .battle-list__item、その中に左右2つの .-team があり、それぞれ
+
+    .-team-score-name   … 選手名（チーム戦の枠は空文字）
+    .deck-link img[alt] … 使用クラス名
+    .-team-score-result … WIN / LOSE
+
+と意味づけされた要素に分かれているので、順番ではなく要素の役割で読める。
+
+--- 節・前半後半・ROUND番号について ---
+リニューアル後のページは「第N節」「第N節・前半/後半」「ROUND n」がDOM上に明示されている。
+以前はこれらを取れなかったため、表示側(rounds.html)が「round列に出てくる日付の通し番号」で
+節番号を推測しており、1節が前半/後半の2日に分かれる構成を扱えず第5節を第8節と表示していた。
+ここで節番号を一緒に取得してCSVに持たせることで、その推測自体を不要にしている。
+
+--- 取り違え防止 ---
+モーダルは1つの要素を使い回して中身だけ差し替える作りなので、クリック直後に読むと
+前のROUNDの内容をそのまま読んでしまうことがある（実際に発生した）。そのため
+「モーダルの対戦カード名が期待するチームと一致し、かつモーダル内のWIN数が一覧のスコアと
+一致する」まで待ってから採用し、駄目なら開き直す。最後まで一致しなければ失敗として扱う。
 
 出力: data/snapshots/ps_results_{today}.json に生データを保存し、
-      [{date, round, player_name, class, result, point, opponent_name, opponent_class}, ...] を返す。
-      opponent_name/opponent_classは同じBATTLE Nの対戦相手の名前・使用クラス
-      （試合結果タブで「いつ・誰と・何を使って戦ったか」を表示するために追加）。
-
---- パース方式について ---
-実際にGitHub Actions上で取得した生テキスト（data/snapshots/ps_results_raw_modals_*.json）を元に、
-モーダル内の1バトル分は以下のような「空行区切りの1行ずつのトークン列」になることを確認した:
-
-    ふえた / ロイヤル / +1pt / WIN / BATTLE 1 / VS / LOSE / CQCQ / ウィッチ
-    Winter / エルフ / LOSE / BATTLE 3 / VS / +1pt / WIN / ヘイム / ビショップ
-
-つまり「BATTLE N」トークンの直前が左側選手の結果(WIN/LOSE)、勝った側だけ結果の直前に"+1pt"が入る。
-「BATTLE N」の直後は"VS"、その次が右側選手の(+1pt/)結果・名前・クラスの順。
-この規則をparse_battles()でトークン列として解析している（正規表現の1発マッチではなく状態ベース）。
-チームバトル枠（個人ではなく「チームバトル」という名前で選手名が入らない対戦）も存在するため、
-player_nameが"チームバトル"の行は個人成績としては除外している。
-
-注意: 非公式サイトではなく公式サイトだが、モーダルのUI実装が変わればトークンの並びが崩れる可能性がある。
-取得失敗時は data/snapshots/ps_results_raw_modals_*.json とログの生テキストで原因調査すること。
+      [{section, half, round_no, battle_no, round, date, player_name, class, result, point,
+        opponent_name, opponent_class}, ...] を返す。
 """
 import re
 import sys
+import time
 
 from playwright.sync_api import sync_playwright
 
@@ -37,147 +58,238 @@ from common import today_str, save_snapshot
 URL = "https://ps.shadowverse-wb.com/26-27/schedule-results/"
 
 TEAM_BATTLE_LABEL = "チームバトル"
+VALID_RESULTS = {"WIN", "LOSE"}
+VALID_CLASSES = {"エルフ", "ロイヤル", "ウィッチ", "ドラゴン", "ナイトメア", "ビショップ", "ネメシス"}
+
+# 消化済みROUNDの一覧を作るJS。NEXT ROUND欄は同じカードの再掲（未実施のみ）なので除外する。
+# クラス名に付く svelte-xxxxx というハッシュはビルドのたびに変わるので絶対に使わない。
+QUEUE_JS = """
+() => {
+  const allLis = Array.from(document.querySelectorAll('li.right-area__round-item'));
+  const out = [];
+  const items = Array.from(document.querySelectorAll('.rounds-list__item'))
+    .filter(i => !/^NEXT ROUND/.test(i.innerText.trim()));
+  for (const item of items) {
+    const secM = item.innerText.match(/第(\\d+)節/);
+    if (!secM) continue;
+    for (const day of item.querySelectorAll('.battle-match')) {
+      const flat = day.innerText.replace(/\\n/g, '');
+      const d = (flat.match(/(\\d{4})(\\d{2})\\.(\\d{2})/) || []).slice(1);
+      const half = (flat.match(/第\\d+節・(前半|後半)/) || [])[1] || '';
+      for (const li of day.querySelectorAll('li.right-area__round-item')) {
+        const card = li.querySelector('.battle-card');
+        if (!card) continue;
+        const sl = card.querySelector('.-score-value.-left');
+        const sr = card.querySelector('.-score-value.-right');
+        const s1 = sl ? sl.textContent.trim() : '';
+        const s2 = sr ? sr.textContent.trim() : '';
+        if (!/^\\d+$/.test(s1) || !/^\\d+$/.test(s2)) continue;   // 未実施
+        if (!li.querySelector('button.js-modal-open-result')) continue;
+        const L = card.querySelector('.battle-card__team.-left p');
+        const R = card.querySelector('.battle-card__team.-right p');
+        const rd = card.querySelector('.-round');
+        out.push({
+          li: allLis.indexOf(li),
+          section: parseInt(secM[1], 10),
+          half: half,
+          date: d.length === 3 ? `${d[0]}-${d[1]}-${d[2]}` : '',
+          round_no: parseInt((rd ? rd.textContent : '').replace(/[^0-9]/g, ''), 10) || null,
+          team1: L ? L.textContent.trim() : '',
+          team2: R ? R.textContent.trim() : '',
+          score1: parseInt(s1, 10),
+          score2: parseInt(s2, 10),
+        });
+      }
+    }
+  }
+  return out;
+}
+"""
+
+# 現在開いているモーダルの中身を、並び順ではなく要素の役割で読む。
+READ_MODAL_JS = """
+() => {
+  const modal = document.querySelector('.result-modal');
+  if (!modal) return null;
+  const card = modal.querySelector('.battle-card');
+  if (!card) return null;
+  const L = card.querySelector('.battle-card__team.-left p');
+  const R = card.querySelector('.battle-card__team.-right p');
+  const battles = [];
+  modal.querySelectorAll('.battle-list__item').forEach((bi, idx) => {
+    const sides = Array.from(bi.querySelectorAll('.-team')).map(tm => {
+      const nameEl = tm.querySelector('.-team-score-name');
+      const clsImg = tm.querySelector('.deck-link img');
+      const resEl  = tm.querySelector('.-team-score-result');
+      return {
+        name: nameEl ? nameEl.textContent.trim() : '',
+        cls: clsImg ? (clsImg.getAttribute('alt') || '').trim() : '',
+        result: resEl ? resEl.textContent.trim() : '',
+      };
+    });
+    if (sides.length === 2) battles.push({battle_no: idx + 1, a: sides[0], b: sides[1]});
+  });
+  return {
+    team1: L ? L.textContent.trim() : '',
+    team2: R ? R.textContent.trim() : '',
+    battles: battles,
+  };
+}
+"""
+
+CLOSE_MODAL_JS = """
+() => {
+  const m = document.querySelector('.modal.is-open');
+  if (!m) return false;
+  const b = m.querySelector('button.js-modal-close');
+  if (b) { b.click(); return true; }
+  return false;
+}
+"""
 
 
-def tokenize(text: str):
-    return [line.strip() for line in text.split("\n") if line.strip()]
+def modal_matches(modal, q):
+    """モーダルの内容が、開こうとしたROUNDのものだと確信できるかを判定する。
+    チーム名の一致だけでなく、モーダル内のWIN数が一覧のスコアと一致することも確認する
+    （モーダルは使い回しなので、前のROUNDの中身を掴んでいないかの二重チェック）。"""
+    if not modal or not modal.get("battles"):
+        return False
+    if modal.get("team1") != q["team1"] or modal.get("team2") != q["team2"]:
+        return False
+    w1 = sum(1 for b in modal["battles"] if b["a"]["result"] == "WIN")
+    w2 = sum(1 for b in modal["battles"] if b["b"]["result"] == "WIN")
+    return w1 == q["score1"] and w2 == q["score2"]
 
 
-def parse_battles(modal_text: str, round_label: str):
-    """モーダルの生テキストから、BATTLE N トークンを起点に選手ごとの勝敗を復元する。"""
-    # ページ末尾の共通フッター（利用規約など）以降は無関係なので切り捨てる
-    cut = modal_text.find("INTERNATIONAL")
-    region = modal_text[:cut] if cut != -1 else modal_text
-    lines = tokenize(region)
+def open_and_read(page, q, attempts=4, timeout_sec=10):
+    """1ROUND分のモーダルを開いて中身を読む。取り違えを検出したら開き直す。"""
+    for _ in range(attempts):
+        page.evaluate(CLOSE_MODAL_JS)
+        page.wait_for_timeout(300)
+        lis = page.query_selector_all("li.right-area__round-item")
+        if q["li"] >= len(lis):
+            return None
+        btn = lis[q["li"]].query_selector("button.js-modal-open-result")
+        if not btn:
+            return None
+        btn.click()
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            modal = page.evaluate(READ_MODAL_JS)
+            if modal_matches(modal, q):
+                return modal
+            page.wait_for_timeout(200)
+    return None
 
-    battles = []
-    for i, line in enumerate(lines):
-        bm = re.match(r"^BATTLE\s*(\d+)$", line)
-        if not bm:
-            continue
 
-        # --- 左側選手（BATTLE Nの直前） ---
-        if i - 1 < 0:
-            continue
-        result1 = lines[i - 1]
-        if result1 == "WIN":
-            if i - 4 < 0:
+def rows_from_modal(q, modal):
+    """モーダル1つ（=1ROUND）分を、選手1人1バトル1行に展開する。
+    チーム戦の枠（選手名が空）は個人成績ではないので除外する。"""
+    rows = []
+    for b in modal["battles"]:
+        pair = (b["a"], b["b"])
+        for idx, side in enumerate(pair):
+            name = side["name"]
+            if not name or name == TEAM_BATTLE_LABEL:
                 continue
-            class1, name1 = lines[i - 3], lines[i - 4]
-        elif result1 == "LOSE":
-            if i - 3 < 0:
-                continue
-            class1, name1 = lines[i - 2], lines[i - 3]
-        else:
-            continue  # 想定外のレイアウト。スキップして次を試す
+            opp = pair[1 - idx]
+            opp_name = opp["name"]
+            rows.append({
+                "section": q["section"],
+                "half": q["half"],
+                "round_no": q["round_no"],
+                "battle_no": b["battle_no"],
+                "round": q["date"],
+                "player_name": name,
+                "class": side["cls"],
+                "result": side["result"],
+                "point": 1 if side["result"] == "WIN" else 0,
+                "opponent_name": opp_name if opp_name and opp_name != TEAM_BATTLE_LABEL else None,
+                "opponent_class": opp["cls"] if opp_name and opp_name != TEAM_BATTLE_LABEL else None,
+            })
+    return rows
 
-        # --- 右側選手（BATTLE N の次はVS、その後ろ） ---
-        if i + 1 >= len(lines) or lines[i + 1] != "VS":
-            continue
-        j = i + 2
-        if j < len(lines) and lines[j] == "+1pt":
-            if j + 3 >= len(lines):
-                continue
-            result2, name2, class2 = lines[j + 1], lines[j + 2], lines[j + 3]
-        else:
-            if j + 2 >= len(lines):
-                continue
-            result2, name2, class2 = lines[j], lines[j + 1], lines[j + 2]
 
-        pair = ((name1, class1, result1), (name2, class2, result2))
-        for idx, (name, cls, result) in enumerate(pair):
-            if name == TEAM_BATTLE_LABEL:
-                continue  # 個人成績ではないので除外（README参照）
-            opp_name, opp_cls, _ = pair[1 - idx]
-            battles.append(
-                {
-                    "round": round_label,
-                    "player_name": name,
-                    "class": cls,
-                    "result": result,
-                    "point": 1 if result == "WIN" else 0,
-                    "opponent_name": opp_name if opp_name != TEAM_BATTLE_LABEL else None,
-                    "opponent_class": opp_cls if opp_name != TEAM_BATTLE_LABEL else None,
-                }
-            )
+def validate(rows, queue, failed):
+    """壊れたデータをCSVに書かないための検算。1つでも落ちたら既存CSVを残して中断する。
+    旧実装は並び順がズレても黙って通り、クラス名がplayer_nameに入った行を大量に書き込んだ。"""
+    errors = []
+    if failed:
+        errors.append(f"モーダルを正しく読めなかったROUNDがある: {failed}")
+    if not rows:
+        errors.append("1行も取得できなかった（ページ構造が変わった可能性）")
 
-    return battles
+    for r in rows:
+        if r["result"] not in VALID_RESULTS:
+            errors.append(f"result列が想定外: {r}")
+            break
+    for r in rows:
+        if r["class"] not in VALID_CLASSES:
+            errors.append(f"class列がクラス名になっていない: {r}")
+            break
+    for r in rows:
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(r["round"])):
+            errors.append(f"round列が日付形式でない: {r}")
+            break
+    for r in rows:
+        if r["class"] == r["player_name"] or r["result"] == r["player_name"]:
+            errors.append(f"列がずれている疑い（選手名とクラス/勝敗が同じ値）: {r}")
+            break
+
+    # 一覧のスコア合計と、展開後の勝ち星の数が矛盾しないか
+    expected_wins = sum(q["score1"] + q["score2"] for q in queue)
+    got_wins = sum(1 for r in rows if r["result"] == "WIN")
+    # チーム戦の枠は個人成績から除外しているので、got_wins <= expected_wins になるのが正しい
+    if got_wins > expected_wins:
+        errors.append(f"勝ち数が一覧のスコア合計を超えている (個人={got_wins} > 一覧計={expected_wins})")
+    return errors
 
 
 def scrape():
     all_rows = []
-    raw_modals = []
+    failed = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(locale="ja-JP")
         page.goto(URL, wait_until="networkidle")
         page.wait_for_timeout(1500)
 
-        buttons = page.query_selector_all("text=試合結果詳細")
-        print(f"[ps_results] found {len(buttons)} completed-match detail buttons")
+        queue = page.evaluate(QUEUE_JS)
+        print(f"[ps_results] 消化済みROUND: {len(queue)}件")
 
-        for i in range(len(buttons)):
-            # DOM再取得のたびにindexがずれる可能性があるので都度クエリし直す
-            buttons = page.query_selector_all("text=試合結果詳細")
-            if i >= len(buttons):
-                break
-            btn = buttons[i]
-            try:
-                btn.click()
-                page.wait_for_timeout(800)
-                modal_text = page.inner_text("body")
-                raw_modals.append(modal_text)
-
-                header_match = re.search(r"(\d{4}\.\d{2}\.\d{2}\([A-Z]+\)[^\n]*)", modal_text)
-                round_label = header_match.group(1) if header_match else f"match_{i}"
-
-                rows = parse_battles(modal_text, round_label)
-                print(f"[ps_results] match {i} ({round_label}): parsed {len(rows)} player-battles")
-                all_rows.extend(rows)
-
-                # モーダルを閉じる（×ボタン想定、無ければEscape）
-                close_btn = page.query_selector("button[aria-label='close'], .modal-close, [class*=close]")
-                if close_btn:
-                    close_btn.click()
-                else:
-                    page.keyboard.press("Escape")
-                page.wait_for_timeout(400)
-            except Exception as e:
-                print(f"[ps_results] failed on match {i}: {e}", file=sys.stderr)
-                page.keyboard.press("Escape")
-                page.wait_for_timeout(400)
+        for q in queue:
+            modal = open_and_read(page, q)
+            label = f"第{q['section']}節{q['half']} ROUND{q['round_no']} {q['team1']} {q['score1']}-{q['score2']} {q['team2']}"
+            if not modal:
+                print(f"[ps_results] FAILED {label}", file=sys.stderr)
+                failed.append(label)
+                continue
+            rows = rows_from_modal(q, modal)
+            print(f"[ps_results] {label}: {len(rows)}行")
+            all_rows.extend(rows)
 
         browser.close()
-
-    return all_rows, raw_modals
+    return all_rows, queue, failed
 
 
 def main():
     date_str = today_str()
-    rows, raw_modals = scrape()
+    rows, queue, failed = scrape()
     for r in rows:
         r["date"] = date_str
         r["source"] = "ps.shadowverse-wb.com"
 
+    errors = validate(rows, queue, failed)
+    if errors:
+        for e in errors:
+            print(f"[ps_results] ERROR: {e}", file=sys.stderr)
+        print("[ps_results] 既存の data/match_results.csv は書き換えずに終了する", file=sys.stderr)
+        sys.exit(1)
+
     save_snapshot("ps_results", rows)
-    # パース失敗時の調査用に、モーダルの生テキストも別途保存する
-    save_snapshot("ps_results_raw_modals", [{"index": i, "text": t} for i, t in enumerate(raw_modals)])
-    if raw_modals:
-        t = raw_modals[0]
-        idx = t.find("BATTLE")
-        idx = idx if idx != -1 else 0
-        start = max(0, idx - 300)
-        print(f"[ps_results] --- first modal raw text around 'BATTLE' (total length={len(t)}) ---")
-        print(t[start:start + 1500])
-        print("[ps_results] --- end raw text sample ---")
+    print(f"[ps_results] {len(rows)}行 / {len(queue)}ROUND を取得")
     return rows
 
 
 if __name__ == "__main__":
-    rows = main()
-    if not rows:
-        print(
-            "WARNING: no rows parsed. Either no matches finished yet, or parse_battles() needs adjusting "
-            "against data/snapshots/ps_results_raw_modals_*.json",
-            file=sys.stderr,
-        )
+    main()

@@ -11,23 +11,23 @@
     {
       "id": 2,
       "win": 1,
-      "lose": 3,
-      "diff": -3,
-      "battlepoint": 7
+      "lose": 4,
+      "diff": -5,
+      "battlepoint": 8
     },
     {
       "id": 3,
-      "win": 3,
+      "win": 4,
       "lose": 1,
-      "diff": 5,
-      "battlepoint": 11
+      "diff": 6,
+      "battlepoint": 14
     },
     {
       "id": 4,
-      "win": 0,
+      "win": 1,
       "lose": 4,
-      "diff": -12,
-      "battlepoint": 2
+      "diff": -10,
+      "battlepoint": 5
     },
     {
       "id": 5,
@@ -53,9 +53,9 @@
     {
       "id": 8,
       "win": 4,
-      "lose": 0,
-      "diff": 6,
-      "battlepoint": 12
+      "lose": 1,
+      "diff": 5,
+      "battlepoint": 14
     }
   ],
   "confirmed_odds": null

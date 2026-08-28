@@ -46,14 +46,39 @@ TAG_TO_RESULT_ID = {"CR": 1, "ZETA": 2, "DFM": 3, "VRL": 4, "MRG": 5, "RC": 6, "
 EXPECTED_GAME_COUNT = 56
 
 # ページ上の1試合分を取り出すJS。
-# 「NEXT ROUND」欄(.results__round--next)にも同じ試合カードが出るが、そちらは未実施の
-# 試合だけなので、二重計上を避けるためレギュラーシーズン一覧(.results__list)に限定する。
+#
+# 2026-08-27前後に公式サイトが全面リニューアル（Svelte製に作り直し）され、DOMが全部変わった。
+# 旧: .results__list / .results__game / .results__team-name / .results__score-num
+# 新: .rounds-list__item / .battle-card / .battle-card__team.-left|-right p / .-score-value.-left|-right
+# 旧セレクタは1件もヒットしなくなったため更新した。
+# なおクラス名に付く svelte-xxxxx というハッシュはビルドのたびに変わるので絶対に使わない。
+#
+# 「NEXT ROUND」欄にも同じ試合カードが出る（未実施の試合のみ）ので、二重計上を避けるため
+# その節ブロックは除外する。モーダルを開くと .result-modal の中にも .battle-card が現れるが、
+# ここではモーダルを開かないので .rounds-list__item に限定すれば混入しない。
 EXTRACT_JS = """
-() => Array.from(document.querySelectorAll('.results__list .results__game')).map(el => {
-    const names = Array.from(el.querySelectorAll('.results__team-name')).map(n => n.textContent.trim());
-    const nums  = Array.from(el.querySelectorAll('.results__score-num')).map(n => n.textContent.trim());
-    return { team1: names[0], team2: names[1], score1: nums[0], score2: nums[1] };
-})
+() => {
+  const items = Array.from(document.querySelectorAll('.rounds-list__item'))
+    .filter(i => !/^NEXT ROUND/.test(i.innerText.trim()));
+  const out = [];
+  for (const item of items) {
+    const secM = item.innerText.match(/第(\\d+)節/);
+    for (const card of item.querySelectorAll('.battle-card')) {
+      const L  = card.querySelector('.battle-card__team.-left p');
+      const R  = card.querySelector('.battle-card__team.-right p');
+      const sl = card.querySelector('.-score-value.-left');
+      const sr = card.querySelector('.-score-value.-right');
+      out.push({
+        section: secM ? parseInt(secM[1], 10) : null,
+        team1: L ? L.textContent.trim() : '',
+        team2: R ? R.textContent.trim() : '',
+        score1: sl ? sl.textContent.trim() : '',
+        score2: sr ? sr.textContent.trim() : '',
+      });
+    }
+  }
+  return out;
+}
 """
 
 
