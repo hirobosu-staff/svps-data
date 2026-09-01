@@ -73,6 +73,15 @@ jobs:
         run: python scrape_result.py
         continue-on-error: true  # 失敗時は既存のdata/result.jsonをそのまま残す（スクリプト側で担保）
 
+      - name: Scrape svlabo.jp battle details
+        # svlabo.jpのカテゴリページ(プレミアシリーズ)を巡回して、新しい節の
+        # 「N節 試合詳細結果＆配信時間指定URL」記事を自動で取り込む。
+        # svlabo.jpは翌日以降の対戦の記事を先に公開する（結果が空のまま）ので、
+        # スクリプト側で未実施の記事はスキップする。取り込み済みの節も再取得しない。
+        working-directory: scripts
+        run: python scrape_svlabo_battle_details.py
+        continue-on-error: true  # 失敗時は既存のdata/battle_details.csvをそのまま残す
+
       - name: Merge into history.csv
         working-directory: scripts
         run: python update_history.py
