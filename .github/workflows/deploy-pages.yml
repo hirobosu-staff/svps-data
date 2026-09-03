@@ -46,6 +46,7 @@ jobs:
           cp -f data/match_results.csv _site/data/match_results.csv 2>/dev/null || true
           cp -f data/result.json _site/data/result.json 2>/dev/null || true
           cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
+          cp -f data/schedule.csv _site/data/schedule.csv 2>/dev/null || true
           cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
 
       - name: Setup Pages

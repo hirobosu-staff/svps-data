@@ -73,6 +73,14 @@ jobs:
         run: python scrape_result.py
         continue-on-error: true  # 失敗時は既存のdata/result.jsonをそのまま残す（スクリプト側で担保）
 
+      - name: Fetch season schedule (schedule.csv)
+        # 公式のSCHEDULE & RESULTSからシーズン全体の日程を取得する。
+        # トップページの「次の節」パネルが参照する。時刻は公式が直前に発表するので、
+        # 未発表の節は時刻が空のまま入り、発表されたら翌日の実行で埋まる。
+        working-directory: scripts
+        run: python scrape_schedule.py
+        continue-on-error: true  # 失敗時は既存のdata/schedule.csvをそのまま残す
+
       - name: Scrape svlabo.jp battle details
         # svlabo.jpのカテゴリページ(プレミアシリーズ)を巡回して、新しい節の
         # 「N節 試合詳細結果＆配信時間指定URL」記事を自動で取り込む。
@@ -106,6 +114,7 @@ jobs:
           cp -f data/result.json _site/data/result.json 2>/dev/null || true
           cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
           cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
+          cp -f data/schedule.csv _site/data/schedule.csv 2>/dev/null || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
