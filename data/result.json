@@ -3,24 +3,24 @@
   "teams": [
     {
       "id": 1,
-      "win": 4,
+      "win": 5,
       "lose": 2,
-      "diff": 6,
-      "battlepoint": 15
+      "diff": 7,
+      "battlepoint": 18
     },
     {
       "id": 2,
-      "win": 2,
+      "win": 3,
       "lose": 4,
-      "diff": -3,
-      "battlepoint": 11
+      "diff": -1,
+      "battlepoint": 14
     },
     {
       "id": 3,
       "win": 5,
-      "lose": 1,
-      "diff": 7,
-      "battlepoint": 17
+      "lose": 2,
+      "diff": 6,
+      "battlepoint": 19
     },
     {
       "id": 4,
@@ -46,9 +46,9 @@
     {
       "id": 7,
       "win": 2,
-      "lose": 4,
-      "diff": -7,
-      "battlepoint": 9
+      "lose": 5,
+      "diff": -9,
+      "battlepoint": 10
     },
     {
       "id": 8,
