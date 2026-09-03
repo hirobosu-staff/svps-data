@@ -8,6 +8,7 @@ const MATCHES_URL = "data/match_results.csv";
 const BATTLE_DETAILS_URL = "data/battle_details.csv";
 const RESULT_JSON_URL = "data/result.json";
 const SVLABO_URL = "data/svlabo_leaderboards.csv";
+const SCHEDULE_URL = "data/schedule.csv";
 // CR(ランクマッチ)順位の「TOP N入り回数」ランキングで選べるしきい値の候補
 const CR_TOPN_THRESHOLDS = [10, 30, 50, 100];
 
@@ -429,6 +430,53 @@ async function loadResultJson() {
     return null;
   }
 }
+
+// data/schedule.csv（公式サイトから毎日取得しているシーズン全体の日程）を読み込む。
+// 取得できない場合は空配列を返す（日程表示だけが出なくなり、他の機能には影響しない）。
+async function loadSchedule() {
+  try {
+    const resp = await fetch(SCHEDULE_URL);
+    if (!resp.ok) return [];
+    return parseCSV(await resp.text());
+  } catch (e) {
+    return [];
+  }
+}
+
+// 「次の節」＝まだ消化していない試合が残っている一番小さい節。
+// 節の中で前半戦だけ終わって後半戦が未消化、という状態もあるので、
+// 「節単位でまだ終わっていないもの」を次の節として扱う（その節の中で消化済みの試合も一緒に返す）。
+// 全部消化済みなら null を返す。
+function findNextSection(schedule) {
+  const unplayed = schedule.filter(r => !r.score1);
+  if (!unplayed.length) return null;
+  const section = Math.min(...unplayed.map(r => Number(r.section)));
+  const rows = schedule.filter(r => Number(r.section) === section)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+      || (Number(a.round_no) - Number(b.round_no)));
+
+  // 同じ日に複数ROUNDあるので、開催日ごとにまとめる
+  const days = [];
+  rows.forEach(r => {
+    let d = days.find(x => x.date === r.date && x.half === r.half);
+    if (!d) {
+      d = { date: r.date, weekday: r.weekday, time: r.time, half: r.half, rounds: [] };
+      days.push(d);
+    }
+    d.rounds.push(r);
+  });
+  return { section, days };
+}
+
+// "2026-09-09" -> "9/9"
+function shortDate(iso) {
+  const m = String(iso || "").match(/^\d{4}-(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[1])}/${Number(m[2])}` : (iso || "");
+}
+
+const WEEKDAY_JA = { SUN: "日", MON: "月", TUE: "火", WED: "水", THU: "木", FRI: "金", SAT: "土" };
+function weekdayJa(wd) { return WEEKDAY_JA[wd] || wd || ""; }
 
 // 順位付けされた配列に対して「同着」を考慮した順位を各要素の.rank に付与する。
 // 例: 2位が2チーム同着なら両方rank=2、その次のチームはrank=4になる（一般的な競技の順位付け方）。

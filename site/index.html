@@ -9,14 +9,16 @@
 <body>
 <header>
   <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <input type="checkbox" id="navToggle" class="nav-toggle-input">
+  <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
-    <a class="nav-btn active" href="index.html">選手一覧</a>
-    <a class="nav-btn" href="ranking.html">ランキング</a>
-    <a class="nav-btn" href="rounds.html">通算成績</a>
-    <a class="nav-btn" href="sections.html">節別結果</a>
-    <a class="nav-btn" href="compare.html">比較</a>
-    <a class="nav-btn" href="beyond.html">BEYOND</a>
-  </nav>
+      <a class="nav-btn active" href="index.html">選手一覧</a>
+      <a class="nav-btn" href="ranking.html">ランキング</a>
+      <a class="nav-btn" href="rounds.html">通算成績</a>
+      <a class="nav-btn" href="sections.html">節別結果</a>
+      <a class="nav-btn" href="compare.html">比較</a>
+      <a class="nav-btn" href="beyond.html">BEYOND</a>
+    </nav>
 </header>
 <main id="app">
   <div class="empty-note">読み込み中...</div>
@@ -43,11 +45,54 @@ function playerCardHTML(p, history, images) {
     </a>`;
 }
 
+// 「次の節」パネル。カレンダーは作らない方針にした（シーズン7ヶ月で開催日が23日しかなく、
+// 月グリッドにすると30マス中3マス程度しか埋まらないため）。代わりに、まだ消化していない
+// 試合が残っている一番小さい節だけを、日付・曜日・時刻・対戦カード付きで大きく出す。
+// 時刻は公式が直前に発表するので、未発表の節は「時刻未定」と出す。
+function nextSectionHTML(schedule) {
+  const next = findNextSection(schedule);
+  if (!next) {
+    if (!schedule.length) return "";   // schedule.csvがまだ無い場合は何も出さない
+    return `<div class="next-section"><div class="next-section__label">全日程終了</div></div>`;
+  }
+  const days = next.days.map(d => {
+    const cards = d.rounds.map(r => {
+      const done = r.score1 !== "" && r.score2 !== "";
+      return `
+        <div class="next-card ${done ? "is-done" : ""}">
+          <span class="next-card__team">${teamLogoHTML(r.team1, 22)}<span>${r.team1}</span></span>
+          <span class="next-card__score">${done ? `${r.score1} - ${r.score2}` : "vs"}</span>
+          <span class="next-card__team -right"><span>${r.team2}</span>${teamLogoHTML(r.team2, 22)}</span>
+        </div>`;
+    }).join("");
+    const allDone = d.rounds.every(r => r.score1 !== "");
+    return `
+      <div class="next-day ${allDone ? "is-done" : ""}">
+        <div class="next-day__head">
+          <span class="next-day__date">${shortDate(d.date)}<span class="next-day__wd">(${weekdayJa(d.weekday)})</span></span>
+          <span class="next-day__time">${d.time ? d.time + "~" : "時刻未定"}</span>
+          ${d.half ? `<span class="next-day__half">${d.half}</span>` : ""}
+          ${allDone ? `<span class="next-day__done">終了</span>` : ""}
+        </div>
+        ${cards}
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="next-section">
+      <div class="next-section__label">次の節</div>
+      <div class="next-section__title">第${next.section}節</div>
+      <div class="next-section__days">${days}</div>
+      <a class="next-section__link" href="sections.html">節別結果を見る</a>
+    </div>`;
+}
+
 async function boot() {
   const app = document.getElementById("app");
-  let data, matches, resultJson;
+  let data, matches, resultJson, schedule;
   try {
-    [data, matches, resultJson] = await Promise.all([loadData(), loadMatches(), loadResultJson()]);
+    [data, matches, resultJson, schedule] =
+      await Promise.all([loadData(), loadMatches(), loadResultJson(), loadSchedule()]);
   } catch (err) {
     app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
     return;
@@ -98,7 +143,7 @@ async function boot() {
       </details>`;
   }).join("");
 
-  app.innerHTML = header + blocks;
+  app.innerHTML = nextSectionHTML(schedule) + header + blocks;
 }
 
 boot();
