@@ -26,25 +26,6 @@
 
 <script src="common.js"></script>
 <script>
-function playerCardHTML(p, history, images) {
-  const followers = latestValue(history, p.player_name, "followers");
-  const yt = latestValue(history, p.player_name, "youtube_subscribers");
-  return `
-    <a class="player-card" href="player.html?name=${encodeURIComponent(p.player_name)}">
-      <div class="photo-row">
-        ${avatarHTML(p, images, 44)}
-        <div>
-          <div class="name">${p.player_name}</div>
-          ${teamLogoHTML(p.team_tag, 18)}
-        </div>
-      </div>
-      <div class="stats">
-        <div>Xフォロワー: <b>${followers != null ? fmtNum(followers) : "-"}</b></div>
-        <div>YouTube登録者: <b>${yt != null ? fmtNum(yt) : "-"}</b></div>
-      </div>
-    </a>`;
-}
-
 // 「次の節」パネル。カレンダーは作らない方針にした（シーズン7ヶ月で開催日が23日しかなく、
 // 月グリッドにすると30マス中3マス程度しか埋まらないため）。代わりに、まだ消化していない
 // 試合が残っている一番小さい節だけを、日付・曜日・時刻・対戦カード付きで大きく出す。
@@ -115,7 +96,15 @@ async function boot() {
     </div>` : "";
 
   const blocks = standings.map((team, i) => {
-    const cards = team.players.map(p => playerCardHTML(p, history, images)).join("");
+    // ここは順位表なので、主役はあくまでチームの成績。
+    // 以前は選手一覧と同じ .player-card（フォロワー数・登録者数つき）を並べていたが、
+    // 選手一覧ページ(players.html)と見た目がほぼ同じになり「2ページある意味が分からない」
+    // 状態だったため、所属選手は名前だけの軽い一覧に変えた。
+    // 数字付きのカードで選手を見たいときは選手一覧へ誘導する。
+    const roster = team.players.map(p => `
+      <a class="roster__item" href="player.html?name=${encodeURIComponent(p.player_name)}">
+        ${avatarHTML(p, images, 26)}<span>${p.player_name}</span>
+      </a>`).join("");
     const diff = team.diff || 0;
     const diffText = diff > 0 ? `+${diff}` : `${diff}`;
     const row = hasRank ? `
@@ -138,7 +127,10 @@ async function boot() {
           <span class="chevron">▼</span>
         </summary>
         <div class="team-panel">
-          <div class="players-grid">${cards}</div>
+          <div class="roster">${roster}</div>
+          <a class="roster__more" href="players.html?team=${encodeURIComponent(team.team_tag)}">
+            ${team.team_tag}の選手を一覧で見る
+          </a>
         </div>
       </details>`;
   }).join("");

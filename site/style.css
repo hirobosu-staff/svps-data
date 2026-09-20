@@ -44,6 +44,11 @@ nav a.nav-btn {
 nav a.nav-btn:hover { color: #fff; }
 nav a.nav-btn.active { background: transparent; border-bottom-color: var(--header-accent); color: #fff; }
 main { max-width: 980px; margin: 0 auto; padding: 24px; }
+/* 比較の「表で比較」は12列あり、980pxだと既定で横にあふれて横スクロール前提になっていた。
+   実データ（最長の選手名 Stylish_deko）で見積もると12列で約1500px必要なので、
+   このページだけ本文幅を広げる（<body class="wide">）。他のページの幅は変えない。
+   画面がこれより狭い環境では .table-scroll が横スクロールで受け止める。 */
+body.wide main { max-width: 1560px; }
 .error-banner {
   background: #fff4f4; border: 1px solid #f3b4b4; color: #a33; padding: 12px 14px;
   border-radius: 10px; font-size: 13px; margin-bottom: 16px;
@@ -214,6 +219,25 @@ a.ext-link {
 #leaderboardTableWrap th:nth-child(4), #leaderboardTableWrap td:nth-child(4) { width: 110px; }
 #leaderboardTableWrap th:nth-child(5), #leaderboardTableWrap td:nth-child(5) { width: 80px; }
 
+/* index.html（順位表）: チームを開いたときの所属選手一覧。
+   選手一覧ページ(players.html)の .player-card と見分けがつくよう、
+   こちらは名前だけの軽い横並びにしている（順位表の主役はチームの成績なので）。 */
+.roster { display: flex; flex-wrap: wrap; gap: 6px; }
+.roster__item {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 12px 4px 4px; background: #fff;
+  font-size: 13px; font-weight: 600; color: inherit; text-decoration: none;
+  transition: border-color .15s ease, background .15s ease;
+}
+.roster__item:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.roster__item .avatar, .roster__item .avatar-fallback { border-radius: 999px; }
+.roster__more {
+  display: inline-block; margin-top: 10px;
+  font-size: 12px; color: var(--accent); text-decoration: none;
+}
+.roster__more:hover { text-decoration: underline; }
+
 /* players.html: 選手一覧の絞り込み（チップが主、検索が従）とチーム見出し */
 .player-filter { margin-bottom: 18px; }
 .player-filter__search { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
@@ -340,6 +364,20 @@ a.ext-link {
   .next-section__title { font-size: 19px; }
   .next-section__days { gap: 10px; }
   .next-day { flex: 1 1 100%; }
+
+  /* 順位表: 所属選手の一覧。狭い画面では1行に入る数が減るだけで、作りは変えない */
+  .roster { gap: 5px; }
+  .roster__item { font-size: 12px; padding: 3px 10px 3px 3px; gap: 6px; }
+
+  /* 選手一覧: チーム絞り込みチップと検索欄 */
+  .team-select-row { gap: 5px; }
+  .player-filter__search { flex-wrap: wrap; }
+  .player-filter__search input { max-width: none; width: 100%; }
+  .team-section__head { font-size: 13px; }
+
+  /* 比較の表は12列あり、スマホでは縮めても読めないので横スクロールに任せる。
+     body.wideのmax-widthは効かせず、画面幅どおりにしてはみ出しを防ぐ。 */
+  body.wide main { max-width: none; }
 
   main { padding: 14px 12px; }
 
