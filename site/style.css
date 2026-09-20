@@ -322,18 +322,19 @@ a.ext-link {
   header h1 { font-size: 13px; flex: 1; min-width: 0; }
 
   header { position: sticky; }
+  /* タップ領域は指で押しやすいよう44px四方を確保する（見た目の3本線は24pxのまま） */
   .nav-toggle-label {
-    display: block; width: 34px; height: 28px; position: relative; cursor: pointer;
-    flex: 0 0 auto;
+    display: block; width: 44px; height: 44px; position: relative; cursor: pointer;
+    flex: 0 0 auto; margin: -8px -6px -8px 0;
   }
   /* 3本線。開いている間は色を強調するだけで×には変形させない（誤タップ時に戻しやすい） */
   .nav-toggle-bar,
   .nav-toggle-bar::before,
   .nav-toggle-bar::after {
-    content: ""; position: absolute; left: 5px; width: 24px; height: 2px;
+    content: ""; position: absolute; width: 24px; height: 2px;
     background: #fff; border-radius: 2px;
   }
-  .nav-toggle-bar { top: 13px; }
+  .nav-toggle-bar { top: 21px; left: 10px; }
   .nav-toggle-bar::before { top: -7px; left: 0; }
   .nav-toggle-bar::after { top: 7px; left: 0; }
   .nav-toggle-input:checked ~ .nav-toggle-label .nav-toggle-bar,
@@ -346,7 +347,7 @@ a.ext-link {
   nav { display: none; }
   .nav-toggle-input:checked ~ nav {
     display: flex;
-    position: absolute; right: 12px; top: 44px; z-index: 20;
+    position: absolute; right: 12px; top: 48px; z-index: 20;
     flex-direction: column; gap: 0;
     background: var(--header-bg);
     border: 1px solid rgba(255,255,255,.18); border-radius: 10px;
