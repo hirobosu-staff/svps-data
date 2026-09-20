@@ -13,8 +13,8 @@
   <input type="checkbox" id="navToggle" class="nav-toggle-input">
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
-      <a class="nav-btn" href="index.html">選手一覧</a>
-      <a class="nav-btn" href="ranking.html">ランキング</a>
+      <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="players.html">選手一覧</a>
       <a class="nav-btn" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
       <a class="nav-btn active" href="compare.html">比較</a>
@@ -166,20 +166,46 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// 表で使う期間指標。期間セレクタで「通算」以外を選ぶと、その期間だけの値に切り替わる。
+// （旧ranking.htmlが持っていた「期間ごとに順位を見る」機能をこちらに移したもの。
+//   ranking.htmlは比較の表と役割が重複していたため廃止した。）
+const PERIODIC_METRICS = ["stream_duration", "video_upload_count"];
+const CUMULATIVE_PERIOD_VALUE = "__cumulative__";
+let tablePeriod = CUMULATIVE_PERIOD_VALUE;
+
+// 選んだ期間での値。通算なら累積系列の最後の値、期間指定ならその期間の値だけを返す。
+function periodValue(history, playerName, metric, period) {
+  if (period === CUMULATIVE_PERIOD_VALUE) {
+    const s = buildCumulativeSeries(history, playerName, metric);
+    return s.data.length ? s.data[s.data.length - 1] : null;
+  }
+  const rows = history.filter(r =>
+    r.player_name === playerName && r.metric === metric && r.period === period);
+  if (!rows.length) return null;
+  rows.sort((a, b) => (a.date < b.date ? 1 : -1));   // 同じ期間を複数日観測していたら最新の観測を使う
+  const v = parseFloat(rows[0].value);
+  return isFinite(v) ? v : null;
+}
+
 function buildTableRows(players, history, images, matches, svlabo) {
   const cr100Counts = crTopNCounts(svlabo, 100);
   return players.map(player => {
-    const streamSeries = buildCumulativeSeries(history, player.player_name, "stream_duration");
-    const videoSeries = buildCumulativeSeries(history, player.player_name, "video_upload_count");
     const followersRaw = latestValue(history, player.player_name, "followers");
     const ytRaw = latestValue(history, player.player_name, "youtube_subscribers");
     return {
       player, images,
       followers: followersRaw != null ? parseFloat(followersRaw) : null,
       yt: ytRaw != null ? parseFloat(ytRaw) : null,
+      // 「今何人いるか」だけだと元から母数の大きい選手が常に上に来るので、
+      // 直近30日でどれだけ動いたかを別列として出す。
+      followersChange: changeOverDays(history, player.player_name, "followers", 30),
+      ytChange: changeOverDays(history, player.player_name, "youtube_subscribers", 30),
+      // 通算配信時間は「昔たくさん配信した人」が有利なので、直近の活動量も別に出す。
+      // 1期間(隔週)だと配信しない週があっただけで0になるため、2期間=およそ1ヶ月で見る。
+      recentStream: recentPeriodTotal(history, player.player_name, "stream_duration", 2),
       stats: summarizeMatches(matches, player.player_name),
-      streamTotal: streamSeries.data.length ? streamSeries.data[streamSeries.data.length - 1] : null,
-      videoTotal: videoSeries.data.length ? videoSeries.data[videoSeries.data.length - 1] : null,
+      streamTotal: periodValue(history, player.player_name, "stream_duration", tablePeriod),
+      videoTotal: periodValue(history, player.player_name, "video_upload_count", tablePeriod),
       // data/svlabo_leaderboards.csv（全ユーザー分）から選手ごとの最高順位を求める。
       // 以前はhistory.csvのcr_best_rank_overallを見ていたが、これは手動スクレイピングを
       // 実行した選手（Atomのみ）にしか値が入っておらず、他の選手が軒並み「-」になっていた。
@@ -199,12 +225,21 @@ const TABLE_COLUMNS = [
   { key: "followers", label: "フォロワー", defaultDir: "desc",
     sortValue: r => r.followers ?? -1,
     render: r => r.followers != null ? fmtNum(r.followers) : "-" },
+  { key: "followersChange", label: "フォロワー30日", defaultDir: "desc",
+    sortValue: r => r.followersChange ? r.followersChange.diff : -Infinity,
+    render: r => formatChange(r.followersChange) },
   { key: "yt", label: "登録者", defaultDir: "desc",
     sortValue: r => r.yt ?? -1,
     render: r => r.yt != null ? fmtNum(r.yt) : "-" },
+  { key: "ytChange", label: "登録者30日", defaultDir: "desc",
+    sortValue: r => r.ytChange ? r.ytChange.diff : -Infinity,
+    render: r => formatChange(r.ytChange) },
   { key: "ps", label: "戦績", defaultDir: "desc",
     sortValue: r => r.stats.points,
     render: r => r.stats.played ? `${r.stats.wins}勝${r.stats.losses}敗` : "-" },
+  { key: "recentStream", label: "直近1ヶ月の配信", defaultDir: "desc",
+    sortValue: r => r.recentStream ?? -1,
+    render: r => r.recentStream != null ? fmtNum(Math.round(r.recentStream * 10) / 10) + "h" : "-" },
   { key: "stream", label: "配信時間", defaultDir: "desc",
     sortValue: r => r.streamTotal ?? -1,
     render: r => r.streamTotal != null ? fmtNum(r.streamTotal) + "h" : "-" },
@@ -219,10 +254,19 @@ const TABLE_COLUMNS = [
     render: r => fmtNum(r.cr100) },
 ];
 
-function renderTableMode(container) {
-  const rows = buildTableRows(players, history, images, matches, svlabo);
+// 期間セレクタの選択肢。隔週期間を新しい順に並べ、先頭に「通算」を置く。
+function periodOptionsHTML() {
+  const periods = [...new Set(history
+    .filter(r => PERIODIC_METRICS.includes(r.metric) && !CUMULATIVE_EXCLUDED_PERIODS.has(r.period))
+    .map(r => r.period))].sort((a, b) => periodSortKey(b) - periodSortKey(a));
+  return `<option value="${CUMULATIVE_PERIOD_VALUE}">通算</option>` +
+    periods.map(p => `<option value="${escapeAttr(p)}">${periodLabel(p)}</option>`).join("");
+}
 
+function renderTableMode(container) {
   function draw() {
+    // 期間を切り替えると配信時間・動画本数の値が変わるので、その都度組み直す
+    const rows = buildTableRows(players, history, images, matches, svlabo);
     const col = TABLE_COLUMNS.find(c => c.key === tableSort.key);
     const sorted = rows.slice().sort((a, b) => {
       const av = col.sortValue(a), bv = col.sortValue(b);
@@ -244,8 +288,18 @@ function renderTableMode(container) {
       </tr>`).join("");
 
     container.innerHTML = `
+      <div class="control-row">
+        <div class="control-group">
+          <label>期間（配信時間・動画本数）</label>
+          <select id="tablePeriodSelect">${periodOptionsHTML()}</select>
+        </div>
+      </div>
       <div class="table-scroll"><table class="rank-table nowrap"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>
     `;
+    const periodSel = container.querySelector("#tablePeriodSelect");
+    periodSel.value = tablePeriod;
+    periodSel.addEventListener("change", () => { tablePeriod = periodSel.value; draw(); });
+
     container.querySelectorAll("th.sortable").forEach(th => {
       th.addEventListener("click", () => {
         const key = th.dataset.key;

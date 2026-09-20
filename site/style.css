@@ -214,6 +214,29 @@ a.ext-link {
 #leaderboardTableWrap th:nth-child(4), #leaderboardTableWrap td:nth-child(4) { width: 110px; }
 #leaderboardTableWrap th:nth-child(5), #leaderboardTableWrap td:nth-child(5) { width: 80px; }
 
+/* players.html: 選手一覧の絞り込み（チップが主、検索が従）とチーム見出し */
+.player-filter { margin-bottom: 18px; }
+.player-filter__search { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.player-filter__search input {
+  flex: 1; max-width: 320px;
+  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; font-size: 13px;
+}
+.player-filter__count { font-size: 12px; color: var(--text-muted); }
+.team-section { margin-bottom: 22px; }
+.team-section__head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700; margin: 0 0 10px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.team-section__count { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: auto; }
+
+/* 増減の表示（比較ページの30日比など）。上がった/下がったを色で即判別できるようにする */
+.change-up { color: #0a7a3d; font-weight: 600; }
+.change-down { color: #b3261e; font-weight: 600; }
+.change-flat { color: var(--text-muted); }
+.change-pct { font-size: 11px; color: var(--text-muted); }
+
 /* index.html: 「次の節」パネル。日程はカレンダーではなくこの形にしている
    （シーズン7ヶ月で開催日が23日しかなく、月グリッドだとほぼ空白になるため）。 */
 .next-section {

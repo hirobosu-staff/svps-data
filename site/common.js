@@ -178,6 +178,79 @@ function latestValue(history, playerName, metric) {
   return rows[0].value;
 }
 
+// --- 直近の動きを見るための指標 ---------------------------------------------
+// 「今フォロワーが何人いるか」だけでは、もともと母数が大きい選手が常に上に来るだけで
+// 「最近伸びているか」が分からない。同じ理由で通算配信時間も「昔たくさん配信した人」が
+// 有利になる。そこで「直近の増減」と「直近の活動量」を別指標として用意する。
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 30日前ちょうどの観測が無い日もある（取得が落ちた日など）ので、前後この日数まで許容して
+// 一番近い観測日を使う。
+const DELTA_TOLERANCE_DAYS = 3;
+
+// followers / youtube_subscribers のように毎日「現在値」を記録している指標について、
+// 最新値と days 日前の値を比べる。比較対象が見つからなければ null を返す。
+// 戻り値: { current, past, diff, pct, pastDate } または null
+function changeOverDays(history, playerName, metric, days) {
+  const rows = history.filter(r => r.player_name === playerName && r.metric === metric && r.value !== "");
+  if (rows.length < 2) return null;
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  const latest = rows[rows.length - 1];
+  const current = parseFloat(latest.value);
+  if (!isFinite(current)) return null;
+
+  const targetTime = new Date(latest.date).getTime() - days * DAY_MS;
+  let best = null, bestGap = Infinity;
+  for (const r of rows) {
+    if (r.date === latest.date) continue;
+    const gap = Math.abs(new Date(r.date).getTime() - targetTime);
+    if (gap < bestGap) { bestGap = gap; best = r; }
+  }
+  if (!best || bestGap > DELTA_TOLERANCE_DAYS * DAY_MS) return null;
+
+  const past = parseFloat(best.value);
+  if (!isFinite(past)) return null;
+  return {
+    current,
+    past,
+    diff: current - past,
+    pct: past ? (current / past - 1) * 100 : null,
+    pastDate: best.date,
+  };
+}
+
+// 直近 n 期間分の合計（配信時間など、隔週期間ごとに値が出る指標向け）。
+// 1期間だけだと「たまたまその2週間配信しなかった」だけで0になり指標として不安定なので、
+// 既定では2期間（およそ1ヶ月）をまとめて見る。
+function recentPeriodTotal(history, playerName, metric, nPeriods) {
+  nPeriods = nPeriods || 2;
+  const rows = history.filter(r =>
+    r.player_name === playerName && r.metric === metric && !CUMULATIVE_EXCLUDED_PERIODS.has(r.period));
+  if (!rows.length) return null;
+
+  // 同じperiodが複数日観測されている場合は、一番新しい観測日の値を採用する
+  const byPeriod = {};
+  rows.forEach(r => {
+    if (!byPeriod[r.period] || byPeriod[r.period].date < r.date) byPeriod[r.period] = r;
+  });
+  const ordered = Object.values(byPeriod).sort((a, b) => periodSortKey(b.period) - periodSortKey(a.period));
+  const use = ordered.slice(0, nPeriods);
+  if (!use.length) return null;
+  return use.reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0);
+}
+
+// 増減を「+606 (+5.9%)」の形にする。実数と率の両方を出すのは、実数だけだと母数の大きい
+// 選手が常に上位になり、率だけだと母数の小さい選手が跳ねるため。
+function formatChange(change, unit) {
+  if (!change) return "-";
+  const sign = change.diff > 0 ? "+" : "";
+  const cls = change.diff > 0 ? "change-up" : change.diff < 0 ? "change-down" : "change-flat";
+  const pct = change.pct == null ? "" :
+    `<span class="change-pct">(${change.pct > 0 ? "+" : ""}${change.pct.toFixed(1)}%)</span>`;
+  return `<span class="${cls}">${sign}${fmtNum(Math.round(change.diff))}${unit || ""}</span> ${pct}`;
+}
+
 // HTML属性値として安全に埋め込むためのエスケープ（ダブルクォート・タグ壊れ対策）。
 function escapeAttr(s) {
   return String(s == null ? "" : s)

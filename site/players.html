@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>選手一覧 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <input type="checkbox" id="navToggle" class="nav-toggle-input">
+  <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
+  <nav>
+      <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn active" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="rounds.html">通算成績</a>
+      <a class="nav-btn" href="sections.html">節別結果</a>
+      <a class="nav-btn" href="compare.html">比較</a>
+      <a class="nav-btn" href="beyond.html">BEYOND</a>
+    </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// 選手個別ページ(player.html)への入口。
+//
+// もともとトップページ(index.html)がこの役割を兼ねていたが、あちらはチーム順位表が主役で
+// 選手カードはアコーディオンの中に畳まれており、既定で開いているのは1チームだけだった。
+// 「選手一覧」という名前なのに37人中4〜5人しか見えておらず、個別ページへ辿り着きにくい
+// という問題があったため、順位表(index.html)と選手一覧(このページ)に役割を分けた。
+//
+// 絞り込みはチームを主、名前検索を従にしている。実際の使い方として
+// 「CRの選手を見たい」の方が「名前を打ち込んで探す」より多いため。
+// 選手カードは順位表と同じ .player-card をそのまま使い、見た目の作りは変えていない。
+
+let players = [], history = [], images = {};
+const filters = { team: "", query: "" };
+
+function playerCardHTML(p) {
+  const followers = latestValue(history, p.player_name, "followers");
+  const yt = latestValue(history, p.player_name, "youtube_subscribers");
+  return `
+    <a class="player-card" href="player.html?name=${encodeURIComponent(p.player_name)}">
+      <div class="photo-row">
+        ${avatarHTML(p, images, 44)}
+        <div>
+          <div class="name">${p.player_name}</div>
+          ${teamLogoHTML(p.team_tag, 18)}
+        </div>
+      </div>
+      <div class="stats">
+        <div>Xフォロワー: <b>${followers != null ? fmtNum(followers) : "-"}</b></div>
+        <div>YouTube登録者: <b>${yt != null ? fmtNum(yt) : "-"}</b></div>
+      </div>
+    </a>`;
+}
+
+function matchesFilters(p) {
+  if (filters.team && p.team_tag !== filters.team) return false;
+  const q = normalizeName(filters.query);
+  if (!q) return true;
+  // 表記ゆれを吸収したいので、選手名もチーム名も正規化して部分一致で見る
+  return normalizeName(p.player_name).includes(q)
+    || normalizeName(p.team_name || "").includes(q)
+    || normalizeName(p.team_tag || "").includes(q);
+}
+
+function renderList() {
+  const wrap = document.getElementById("playerList");
+  const hit = players.filter(matchesFilters);
+  const count = document.getElementById("hitCount");
+  count.textContent = `${hit.length}人`;
+
+  if (!hit.length) {
+    wrap.innerHTML = `<div class="empty-note">該当する選手がいません</div>`;
+    return;
+  }
+
+  // チーム絞り込み中や検索中は、チーム見出しを挟まず単純に並べた方が見やすい。
+  // 全員表示のときだけチームごとに区切る（順位表と同じ並び順＝players.csvの記載順）。
+  if (filters.team || filters.query.trim()) {
+    wrap.innerHTML = `<div class="players-grid">${hit.map(playerCardHTML).join("")}</div>`;
+    return;
+  }
+
+  const byTeam = [];
+  hit.forEach(p => {
+    let g = byTeam.find(x => x.tag === p.team_tag);
+    if (!g) { g = { tag: p.team_tag, name: p.team_name, list: [] }; byTeam.push(g); }
+    g.list.push(p);
+  });
+  wrap.innerHTML = byTeam.map(g => `
+    <section class="team-section">
+      <h2 class="team-section__head">
+        ${teamLogoHTML(g.tag, 26)}
+        <span>${g.name}</span>
+        <span class="team-section__count">${g.list.length}人</span>
+      </h2>
+      <div class="players-grid">${g.list.map(playerCardHTML).join("")}</div>
+    </section>`).join("");
+}
+
+function renderChips() {
+  const row = document.getElementById("teamChips");
+  const teams = [];
+  players.forEach(p => {
+    if (!teams.find(t => t.tag === p.team_tag)) teams.push({ tag: p.team_tag, name: p.team_name });
+  });
+  row.innerHTML =
+    `<button class="team-select-btn ${filters.team === "" ? "active" : ""}" data-team=""
+       style="${filters.team === "" ? "background:var(--accent);color:#fff;border-color:transparent;" : ""}">すべて</button>` +
+    teams.map(t => {
+      const on = filters.team === t.tag;
+      const color = TEAM_COLORS[t.tag] || "#888";
+      return `<button class="team-select-btn ${on ? "active" : ""}" data-team="${escapeAttr(t.tag)}"
+        style="${on ? `background:${color};color:#fff;border-color:transparent;` : ""}">
+        ${teamLogoHTML(t.tag, 18)}<span>${t.tag}</span></button>`;
+    }).join("");
+
+  row.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      filters.team = b.dataset.team;
+      renderChips();
+      renderList();
+    });
+  });
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data;
+  try {
+    data = await loadData();
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  ({ players, history, images } = data);
+
+  // player.html や他ページから ?team=CR / ?q=名前 で絞った状態を開けるようにしておく
+  const params = new URLSearchParams(location.search);
+  filters.team = params.get("team") || "";
+  filters.query = params.get("q") || "";
+
+  app.innerHTML = `
+    <div class="player-filter">
+      <div class="team-select-row" id="teamChips"></div>
+      <div class="player-filter__search">
+        <input type="text" id="playerSearch" placeholder="選手名・チーム名で絞り込み">
+        <span class="player-filter__count" id="hitCount"></span>
+      </div>
+    </div>
+    <div id="playerList"></div>
+  `;
+
+  const search = document.getElementById("playerSearch");
+  search.value = filters.query;
+  search.addEventListener("input", () => {
+    filters.query = search.value;
+    renderList();
+  });
+
+  renderChips();
+  renderList();
+}
+
+boot();
+</script>
+</body>
+</html>
