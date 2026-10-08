@@ -4,30 +4,30 @@
     {
       "id": 1,
       "win": 5,
-      "lose": 2,
-      "diff": 7,
-      "battlepoint": 18
+      "lose": 3,
+      "diff": 6,
+      "battlepoint": 20
     },
     {
       "id": 2,
-      "win": 3,
+      "win": 4,
       "lose": 4,
-      "diff": -1,
-      "battlepoint": 14
+      "diff": 0,
+      "battlepoint": 17
     },
     {
       "id": 3,
-      "win": 5,
+      "win": 6,
       "lose": 2,
-      "diff": 6,
-      "battlepoint": 19
+      "diff": 7,
+      "battlepoint": 22
     },
     {
       "id": 4,
       "win": 1,
-      "lose": 6,
-      "diff": -16,
-      "battlepoint": 6
+      "lose": 7,
+      "diff": -17,
+      "battlepoint": 8
     },
     {
       "id": 5,
