@@ -88,7 +88,7 @@ outputs フォルダに作ってから提示する、という流れは取らな
 | 公開URL | https://hirobosu-staff.github.io/svps-data/ |
 | 自動実行 | GitHub Actions `daily-update.yml`、cron `17 3 * * *` (UTC) = **12:17 JST** |
 | サイトのみ再デプロイ | `deploy-pages.yml`（`site/**` 等の push がトリガー） |
-| 改行コード | リポジトリ内のファイルは **CRLF**。書き換え時は維持すること |
+| 改行コード | Actions が書く `data/` のファイル（players.csv 以外）は **CRLF**。`site/` `scripts/` `.github/` `*.md` と `data/players.csv` は **LF**。書き換え時は元の形式を維持すること |
 
 **動作確認は公開サイトで行う。** ローカルの `file://` ではなく
 `https://hirobosu-staff.github.io/svps-data/` を見る。ユーザーの指示:
@@ -135,7 +135,8 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 
 | ファイル | 役割 |
 |---|---|
-| `index.html` | **順位表**。先頭に「次の節」パネル。チームはアコーディオン、中身は軽量な選手名リスト |
+| `index.html` | **順位表**。先頭に「次の節」パネル。チームはアコーディオン、中身は軽量な選手名リストとチーム戦績へのリンク |
+| `team.html` | **チーム戦績**。チームごとに14節を1行ずつ並べ、行を開くとバトル内訳（アコーディオン）。下に選手別・使用クラス別・先攻/後攻。`?team=` |
 | `players.html` | **選手一覧**。チームチップで絞り込み + 検索。`?team=` `?q=` 対応 |
 | `player.html` | 選手個別（折れ線グラフ + 対戦履歴）。`?name=` |
 | `rounds.html` | 通算成績 |
@@ -276,7 +277,7 @@ def battle_is_played(b):
 
 ### サイトを触ったとき
 
-- [ ] 公開サイトの**全7ページ**を開いて崩れていないか
+- [ ] 公開サイトの**全8ページ**を開いて崩れていないか
 - [ ] スマホ（375px）で `scrollWidth == clientWidth == 375` になっているか（横スクロールが出ていないか）
 - [ ] PC 表示が**一切変わっていない**か
 - [ ] ページ間のリンクが全部生きているか（特に選手名 → `player.html?name=`）
@@ -308,6 +309,7 @@ def battle_is_played(b):
 | セットアップ・APIキー | セットアップ手順 / YouTube Data APIキーの取得方法 |
 | 選手名の表記ゆれ | 選手名の表記ゆれについて（NAME_ALIASES） |
 | 対戦成績のデータ構造 | 対戦成績について（match_results.csv・battle_details.csv） |
+| チーム戦績ページの設計 | チーム戦績について（team.html） |
 | 選手一覧の設計 | 選手一覧について（players.html） |
 | 比較表の期間セレクタ | 比較の表について（compare.html） |
 | 日程・「次の節」の定義 | 日程について（schedule.csv） |

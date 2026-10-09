@@ -13,6 +13,7 @@
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
       <a class="nav-btn active" href="index.html">順位表</a>
+      <a class="nav-btn" href="team.html">チーム戦績</a>
       <a class="nav-btn" href="players.html">選手一覧</a>
       <a class="nav-btn" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
@@ -130,6 +131,9 @@ async function boot() {
           <div class="roster">${roster}</div>
           <a class="roster__more" href="players.html?team=${encodeURIComponent(team.team_tag)}">
             ${team.team_tag}の選手を一覧で見る
+          </a>
+          <a class="roster__more" style="margin-left:16px;" href="team.html?team=${encodeURIComponent(team.team_tag)}">
+            ${team.team_tag}の節ごとの戦績を見る
           </a>
         </div>
       </details>`;

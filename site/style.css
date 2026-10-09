@@ -295,6 +295,39 @@ a.ext-link {
 }
 .next-card.is-done .next-card__score { color: var(--text); }
 
+/* team.html（チーム戦績）: 節ごとの結果を1行ずつ並べ、行を開くとバトル内訳を出すアコーディオン。
+   開閉は順位表の .team-block と同じ<details>。未実施の節は開くものが無いので<div>で同じ行の形だけ出す。 */
+.team-results { margin-bottom: 24px; }
+.team-result { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; overflow: hidden; background: #fff; }
+.team-result__row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 14px;
+  list-style: none;
+}
+details.team-result > summary { cursor: pointer; }
+details.team-result > summary::-webkit-details-marker { display: none; }
+details.team-result > summary:hover { background: #fafbfc; }
+.team-result__sec { width: 120px; font-weight: 700; display: inline-flex; align-items: baseline; gap: 6px; }
+.team-result__half { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.team-result__date { width: 72px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.team-result__wd { font-size: 11px; color: var(--text-muted); margin-left: 1px; }
+.team-result__opp { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.team-result__vs { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.team-result__opp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-result__score { width: 76px; text-align: center; font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+.team-result__badge { width: 48px; text-align: center; }
+.team-result__chevron { width: 14px; color: var(--text-muted); font-size: 12px; transition: transform .15s ease; }
+details.team-result[open] .team-result__chevron { transform: rotate(180deg); }
+.team-result.is-upcoming { background: #fafbfc; color: var(--text-muted); }
+.team-result.is-upcoming .team-result__score { font-size: 12px; font-weight: 600; }
+.team-result__panel { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
+.team-result__fise { font-size: 12px; color: var(--text-muted); }
+.team-result__teambattle { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.team-result__note { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.team-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 10px; }
+.team-stats__title { font-size: 14px; font-weight: 700; margin: 0 0 8px; }
+.team-stats__box .team-stats__title + table { margin-bottom: 18px; }
+.team-stats table.rank-table th.num, .team-stats table.rank-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
 /* スマホ用ナビ（ハンバーガー）のトグル。PCでは完全に隠し、ナビは従来通りのタブ表示。
    チェックボックス+labelで作っているのでJSは不要
    （<details>だとPCでナビ本体まで折りたたまれてしまうためこの方式にした）。 */
@@ -461,4 +494,21 @@ a.ext-link {
   /* --- 比較ページの選手チップ --- */
   .player-chip-list { max-height: 150px; }
   .players-grid { gap: 10px; }
+
+  /* --- チーム戦績（team.html） --- */
+  /* 1行には収まらないので、グリッドで2段に固定する。
+     1段目: 節（左）・日付（右）、2段目: 相手・スコア・勝敗・開閉アイコン。 */
+  .team-result__row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto 14px;
+    grid-template-areas: "sec date date date" "opp score badge chev";
+    gap: 4px 8px; padding: 9px 10px; font-size: 13px;
+  }
+  .team-result__sec { grid-area: sec; width: auto; font-size: 13px; }
+  .team-result__date { grid-area: date; width: auto; font-size: 12px; text-align: right; }
+  .team-result__opp { grid-area: opp; gap: 6px; }
+  .team-result__score { grid-area: score; width: auto; min-width: 44px; font-size: 15px; }
+  .team-result__badge { grid-area: badge; width: 40px; }
+  .team-result__chevron { grid-area: chev; }
+  .team-result__panel { padding: 8px 8px 10px; }
+  .team-stats { grid-template-columns: 1fr; gap: 6px; }
 }

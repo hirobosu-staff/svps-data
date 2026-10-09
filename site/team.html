@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>チーム戦績 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <input type="checkbox" id="navToggle" class="nav-toggle-input">
+  <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
+  <nav>
+      <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn active" href="team.html">チーム戦績</a>
+      <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="rounds.html">通算成績</a>
+      <a class="nav-btn" href="sections.html">節別結果</a>
+      <a class="nav-btn" href="compare.html">比較</a>
+      <a class="nav-btn" href="beyond.html">BEYOND</a>
+    </nav>
+</header>
+<main id="app">
+  <div class="empty-note">読み込み中...</div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// チーム単位の戦績ページ。1節につき1チーム1ROUNDなので、節ごとに1行
+// （第N節 / 日付 / 対戦相手 / スコア / 勝敗）を並べ、行を開くとそのROUNDのバトル内訳を出す
+// （アコーディオン。開閉はindex.htmlの順位表と同じく<details>を使う）。
+//
+// データの出どころ:
+//   - 行（日付・対戦相手・スコア）: schedule.csv（公式。全14節分あるので未実施の節も出せる）
+//   - 開いた中身: battle_details.csv（svlabo由来。チームバトル・使用/未使用クラス・配信URLあり）
+//     battle_details.csvに無い節（1日4ROUND開催の3節・6節など）は match_results.csv（公式）で代替する。
+//     こちらは個人戦3枠だけでチームバトル・クラス候補・配信URLは持っていない。
+// 下の「選手別」「クラス別」も、開いた中身と同じバトル一覧から集計しているので数字は必ず一致する。
+
+let players = [], images = {}, schedule = [], battleDetails = [], matches = [], standings = [];
+let teamNames = {};
+let currentTeam = "";
+
+// 指定チーム視点で、1ROUND分のバトル一覧を返す。
+// 戻り値: { source: "svlabo" | "official" | "none", battles: [{ no, me, mePool, meUsed, opp, oppPool, oppUsed, fise, win, video, isTeam }] }
+function roundBattles(team, r) {
+  const fromDetails = battleDetails.filter(b =>
+    b.section === r.section && b.half === r.half && b.round_no === r.round_no
+    && (b.team1 === team || b.team2 === team));
+  if (fromDetails.length) {
+    const battles = fromDetails.map(b => {
+      const mine = b.team1 === team;
+      const t1win = b.winlose === "WIN";
+      return {
+        no: Number(b.battle_no),
+        me: mine ? b.player1 : b.player2,
+        mePool: mine ? b.class1_pool : b.class2_pool,
+        meUsed: mine ? b.class1_used : b.class2_used,
+        opp: mine ? b.player2 : b.player1,
+        oppPool: mine ? b.class2_pool : b.class1_pool,
+        oppUsed: mine ? b.class2_used : b.class1_used,
+        // fiseはteam1側から見た先攻/後攻なので、team2視点では反転する
+        fise: mine ? b.fise : (b.fise === "先攻" ? "後攻" : b.fise === "後攻" ? "先攻" : b.fise),
+        win: mine ? t1win : !t1win,
+        video: b.video_url || "",
+        isTeam: b.player1 === "チームバトル",
+      };
+    }).sort((a, b) => a.no - b.no);
+    return { source: "svlabo", battles };
+  }
+
+  // match_results.csvのhalfは「前半」「後半」表記（schedule側は「前半戦」「後半戦」）
+  const half = r.half.replace(/戦$/, "");
+  const fromMatches = matches.filter(m =>
+    m.section === r.section && m.half === half && m.round_no === r.round_no && m.team_tag === team);
+  if (fromMatches.length) {
+    const battles = fromMatches.map(m => ({
+      no: Number(m.battle_no),
+      me: m.player_name, mePool: "", meUsed: m.class,
+      opp: m.opponent_name, oppPool: "", oppUsed: m.opponent_class,
+      fise: "", win: m.result === "WIN", video: "", isTeam: false,
+    })).sort((a, b) => a.no - b.no);
+    return { source: "official", battles };
+  }
+  return { source: "none", battles: [] };
+}
+
+// そのチームの全14節分の行（schedule.csv）を節順に返す
+function teamRounds(team) {
+  return schedule
+    .filter(r => r.team1 === team || r.team2 === team)
+    .map(r => {
+      const mine = r.team1 === team;
+      const played = r.score1 !== "" && r.score2 !== "";
+      const myScore = mine ? Number(r.score1) : Number(r.score2);
+      const oppScore = mine ? Number(r.score2) : Number(r.score1);
+      return {
+        row: r,
+        section: Number(r.section),
+        opponent: mine ? r.team2 : r.team1,
+        played,
+        myScore, oppScore,
+        win: played && myScore > oppScore,
+      };
+    })
+    .sort((a, b) => a.section - b.section || (a.row.date < b.row.date ? -1 : 1));
+}
+
+function playerCellHTML(name, pool, used) {
+  if (name === "チームバトル") {
+    return `<div class="team-result__teambattle">チームバトル</div>${pool ? classPoolHTML(pool, used, 18) : classIconHTML(used, 18)}`;
+  }
+  const p = players.find(x => x.player_name === name);
+  const label = p
+    ? `<a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${name}</a>`
+    : name;
+  return `<div>${label}</div>${pool ? classPoolHTML(pool, used, 18) : classIconHTML(used, 18)}`;
+}
+
+function roundDetailHTML(team, item) {
+  const { source, battles } = roundBattles(team, item.row);
+  if (source === "none") {
+    return `<div class="empty-note">このROUNDのバトル内訳はまだ取得できていません</div>`;
+  }
+  const note = source === "official"
+    ? `<div class="team-result__note">この節は節別詳細（svlabo）のデータが無いため、公式サイトの個人戦3枠のみ表示しています。チームバトル・クラス候補・配信リンクはありません。</div>`
+    : "";
+  const rows = battles.map(b => `
+    <tr>
+      <td>BATTLE${b.no}</td>
+      <td>${playerCellHTML(b.me, b.mePool, b.meUsed)}</td>
+      <td class="team-result__fise">${b.fise || "-"}</td>
+      <td>${playerCellHTML(b.opp, b.oppPool, b.oppUsed)}</td>
+      <td><span class="result-badge ${b.win ? "win" : "lose"}">${b.win ? "勝ち" : "負け"}</span></td>
+      <td>${b.video ? `<a href="${escapeAttr(b.video)}" target="_blank" rel="noopener" style="font-size:12px;">配信</a>` : "-"}</td>
+    </tr>`).join("");
+  return `
+    ${note}
+    <div class="table-scroll">
+      <table class="rank-table">
+        <thead><tr><th>BATTLE</th><th>${team}</th><th>先後</th><th>${item.opponent}</th><th>結果</th><th>配信</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function roundRowHTML(item) {
+  const r = item.row;
+  const opp = `
+    <span class="team-result__opp">
+      <span class="team-result__vs">vs</span>
+      ${teamLogoHTML(item.opponent, 24)}
+      <span class="team-result__opp-name">${teamNames[item.opponent] || item.opponent}</span>
+    </span>`;
+  const head = `
+    <span class="team-result__sec">第${item.section}節${r.half ? `<span class="team-result__half">${r.half}</span>` : ""}</span>
+    <span class="team-result__date">${shortDate(r.date)}<span class="team-result__wd">(${weekdayJa(r.weekday)})</span></span>
+    ${opp}`;
+
+  if (!item.played) {
+    return `
+      <div class="team-result is-upcoming">
+        <div class="team-result__row">
+          ${head}
+          <span class="team-result__score">${r.time ? r.time + "~" : "時刻未定"}</span>
+          <span class="team-result__badge"></span>
+          <span class="team-result__chevron"></span>
+        </div>
+      </div>`;
+  }
+  return `
+    <details class="team-result">
+      <summary class="team-result__row">
+        ${head}
+        <span class="team-result__score">${item.myScore} - ${item.oppScore}</span>
+        <span class="team-result__badge"><span class="result-badge ${item.win ? "win" : "lose"}">${item.win ? "勝ち" : "負け"}</span></span>
+        <span class="team-result__chevron">▼</span>
+      </summary>
+      <div class="team-result__panel">${roundDetailHTML(currentTeam, item)}</div>
+    </details>`;
+}
+
+// 選手別・クラス別の集計。どちらも上の内訳と同じroundBattles()の結果から数える。
+function aggregate(team, rounds) {
+  const byPlayer = {}, byClass = {}, byFise = { 先攻: { w: 0, l: 0 }, 後攻: { w: 0, l: 0 } };
+  const teamBattle = { w: 0, l: 0 };
+  let missingTeamBattle = 0;
+  rounds.filter(x => x.played).forEach(item => {
+    const { source, battles } = roundBattles(team, item.row);
+    if (source !== "svlabo") missingTeamBattle++;
+    battles.forEach(b => {
+      const k = b.win ? "w" : "l";
+      if (b.isTeam) teamBattle[k]++;
+      else {
+        if (!byPlayer[b.me]) byPlayer[b.me] = { w: 0, l: 0 };
+        byPlayer[b.me][k]++;
+      }
+      if (b.meUsed) {
+        if (!byClass[b.meUsed]) byClass[b.meUsed] = { w: 0, l: 0 };
+        byClass[b.meUsed][k]++;
+      }
+      if (byFise[b.fise]) byFise[b.fise][k]++;
+    });
+  });
+  return { byPlayer, byClass, byFise, teamBattle, missingTeamBattle };
+}
+
+function recordCells(rec) {
+  const n = rec.w + rec.l;
+  const rate = n ? `${Math.round(rec.w / n * 100)}%` : "-";
+  return `<td class="num">${n}</td><td class="num">${rec.w}</td><td class="num">${rec.l}</td><td class="num">${rate}</td>`;
+}
+
+function statsHTML(team, rounds) {
+  const agg = aggregate(team, rounds);
+  const roster = players.filter(p => p.team_tag === team);
+  const playerRows = roster.map(p => `
+    <tr>
+      <td><a class="player-link" href="player.html?name=${encodeURIComponent(p.player_name)}">${avatarHTML(p, images, 24)}<span>${p.player_name}</span></a></td>
+      ${recordCells(agg.byPlayer[p.player_name] || { w: 0, l: 0 })}
+    </tr>`).join("") + `
+    <tr>
+      <td><span class="team-result__teambattle">チームバトル</span></td>
+      ${recordCells(agg.teamBattle)}
+    </tr>`;
+
+  const classOrder = Object.keys(CLASS_ICONS);
+  const classRows = Object.keys(agg.byClass)
+    .sort((a, b) => {
+      const na = agg.byClass[a].w + agg.byClass[a].l, nb = agg.byClass[b].w + agg.byClass[b].l;
+      return nb - na || classOrder.indexOf(a) - classOrder.indexOf(b);
+    })
+    .map(c => `<tr><td><span class="vs-cell">${classIconHTML(c, 20)}<span>${c}</span></span></td>${recordCells(agg.byClass[c])}</tr>`)
+    .join("");
+  const fiseRows = ["先攻", "後攻"].map(f => `<tr><td>${f}</td>${recordCells(agg.byFise[f])}</tr>`).join("");
+
+  const note = agg.missingTeamBattle
+    ? `<div class="team-result__note">チームバトル・先攻/後攻は、節別詳細（svlabo）のデータがある節だけで集計しています（${agg.missingTeamBattle}ROUND分は個人戦のみ）。</div>`
+    : "";
+  const head = `<thead><tr><th></th><th class="num">試合</th><th class="num">勝</th><th class="num">敗</th><th class="num">勝率</th></tr></thead>`;
+  return `
+    <div class="team-stats">
+      <div class="team-stats__box">
+        <h2 class="team-stats__title">選手別</h2>
+        <table class="rank-table">${head}<tbody>${playerRows}</tbody></table>
+      </div>
+      <div class="team-stats__box">
+        <h2 class="team-stats__title">使用クラス別</h2>
+        <table class="rank-table">${head}<tbody>${classRows || `<tr><td colspan="5">-</td></tr>`}</tbody></table>
+        <h2 class="team-stats__title">先攻/後攻</h2>
+        <table class="rank-table">${head}<tbody>${fiseRows}</tbody></table>
+      </div>
+    </div>
+    ${note}`;
+}
+
+function summaryHTML(team) {
+  const s = standings.find(t => t.team_tag === team);
+  if (!s) return "";
+  const diff = s.diff || 0;
+  return `
+    <div class="detail-header">
+      ${teamLogoHTML(team, 48)}
+      <div class="info"><h2>${teamNames[team] || team}</h2></div>
+    </div>
+    <div class="quick-stats">
+      <div class="quick-stat"><div class="label">順位</div><div class="value">${s.rank ? s.rank + "位" : "-"}</div></div>
+      <div class="quick-stat"><div class="label">ROUND</div><div class="value">${s.wins}勝${s.losses}敗</div></div>
+      <div class="quick-stat"><div class="label">W/L DIFF</div><div class="value">${diff > 0 ? "+" + diff : diff}</div></div>
+      <div class="quick-stat"><div class="label">BATTLE POINT</div><div class="value">${fmtNum(s.points)}</div></div>
+    </div>`;
+}
+
+function renderChips() {
+  const row = document.getElementById("teamChips");
+  row.innerHTML = standings.map(t => {
+    const on = currentTeam === t.team_tag;
+    const color = TEAM_COLORS[t.team_tag] || "#888";
+    return `<button class="team-select-btn ${on ? "active" : ""}" data-team="${escapeAttr(t.team_tag)}"
+      style="${on ? `background:${color};color:#fff;border-color:transparent;` : ""}">
+      ${teamLogoHTML(t.team_tag, 18)}<span>${t.team_tag}</span></button>`;
+  }).join("");
+  row.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      currentTeam = b.dataset.team;
+      // 共有しやすいよう、選択中のチームをURLにも反映する（履歴は増やさない）
+      history.replaceState(null, "", `?team=${encodeURIComponent(currentTeam)}`);
+      renderChips();
+      renderTeam();
+    });
+  });
+}
+
+function renderTeam() {
+  const wrap = document.getElementById("teamView");
+  const rounds = teamRounds(currentTeam);
+  if (!rounds.length) {
+    wrap.innerHTML = summaryHTML(currentTeam) + `<div class="empty-note">日程データがありません</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    ${summaryHTML(currentTeam)}
+    <h2 class="team-stats__title">節ごとの結果</h2>
+    <div class="team-results">${rounds.map(roundRowHTML).join("")}</div>
+    ${statsHTML(currentTeam, rounds)}`;
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data, resultJson;
+  try {
+    [data, matches, resultJson, schedule, battleDetails] = await Promise.all([
+      loadData(), loadMatches(), loadResultJson(), loadSchedule(), loadBattleDetails()]);
+  } catch (err) {
+    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    return;
+  }
+  ({ players, images } = data);
+  players.forEach(p => { teamNames[p.team_tag] = p.team_name; });
+  standings = computeTeamStandings(players, matches, resultJson).list;
+
+  // ?team=CR で開けるようにする。指定が無い/不正なら現在1位のチームを出す
+  const param = new URLSearchParams(location.search).get("team");
+  currentTeam = standings.some(t => t.team_tag === param) ? param : (standings[0] ? standings[0].team_tag : "");
+
+  app.innerHTML = `
+    <div class="team-select-row" id="teamChips"></div>
+    <div id="teamView"></div>`;
+  renderChips();
+  renderTeam();
+}
+
+boot();
+</script>
+</body>
+</html>
