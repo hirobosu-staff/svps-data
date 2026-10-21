@@ -74,7 +74,9 @@ svps-tracker/
     │                             「クラス別」＝期間×クラスで絞り込んだ順位表、
     │                             「全クラス合算TOP100」＝各選手のその期間内での最高レート
     │                             （クラス問わず）で並べ直したTOP100。期間・チーム・選手名検索で
-    │                             絞り込める。PS出場選手の行はplayer.htmlへのリンクになる）
+    │                             絞り込める。PS出場選手の行はplayer.htmlへのリンクになる。
+    │                             「BEYOND数」＝1期間で100位以内に入ったクラス数で並べたTOP100
+    │                             （同数は平均順位順）と、7クラス全部入った「全ビヨンド経験者」の一覧）
     ├── images/players/          ダウンロードした選手写真（scrape_player_images.pyが生成、初回pushには含まれない）
     ├── images/teams/            8チームの公式ロゴ画像（提供されたPNG。common.jsのteamLogoHTML()が参照）
     └── images/classes/          シャドバのクラスアイコン（ユーザー提供のSVG、8種）

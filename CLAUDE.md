@@ -142,7 +142,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `rounds.html` | 通算成績 |
 | `sections.html` | 節別結果（**最新の節がデフォルト選択**） |
 | `compare.html` | 比較表。`<body class="wide">` で横幅 1560px |
-| `beyond.html` | BEYOND（CRランキング関連） |
+| `beyond.html` | BEYOND（CRランキング関連）。タブは「レート」「TOP N入り回数」「BEYOND数」。BEYOND数は同数なら**平均順位**順（前半戦と後半戦でボーダーの高さが違うため平均レートは使わない） |
 | `ranking.html` | **廃止済み**。compare.html へのリダイレクトスタブ |
 | `common.js` | データ読み込み・集計・順位付けの共通処理。**まずここを読む** |
 | `style.css` | 全ページ共通。末尾に `@media (max-width: 768px)` が1ブロックだけある |

@@ -328,6 +328,22 @@ details.team-result[open] .team-result__chevron { transform: rotate(180deg); }
 .team-stats__box .team-stats__title + table { margin-bottom: 18px; }
 .team-stats table.rank-table th.num, .team-stats table.rank-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* beyond.html「BEYOND数」タブ: 7クラス分の順位を並べる欄（圏外のクラスはアイコンを薄くする） */
+.beyond-count-summary { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); }
+.beyond-count-summary span { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; }
+.beyond-classes { display: inline-flex; gap: 5px; }
+.beyond-cls { display: inline-grid; justify-items: center; width: 26px; }
+.beyond-cls span { font-size: 10px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.beyond-cls.off img { opacity: .2; filter: grayscale(1); }
+.beyond-cls.off span { color: var(--border); }
+.beyond-of { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.beyond-period { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.beyond-full-title { font-size: 15px; font-weight: 700; margin: 28px 0 4px; }
+.beyond-full-lead { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; }
+.beyond-full-periods { font-size: 12px; color: var(--text-muted); }
+.beyond-full-periods span { display: inline-block; margin-right: 10px; }
+table.rank-table.beyond-count-table th { white-space: nowrap; }
+
 /* スマホ用ナビ（ハンバーガー）のトグル。PCでは完全に隠し、ナビは従来通りのタブ表示。
    チェックボックス+labelで作っているのでJSは不要
    （<details>だとPCでナビ本体まで折りたたまれてしまうためこの方式にした）。 */
@@ -511,4 +527,9 @@ details.team-result[open] .team-result__chevron { transform: rotate(180deg); }
   .team-result__chevron { grid-area: chev; }
   .team-result__panel { padding: 8px 8px 10px; }
   .team-stats { grid-template-columns: 1fr; gap: 6px; }
+
+  /* --- BEYOND「BEYOND数」タブ --- */
+  /* 列が多いので横スクロールで受ける（BEYOND数の表は#tableWrap、全ビヨンド経験者は#beyondFullWrap） */
+  #beyondFullWrap { overflow-x: auto; }
+  table.rank-table.beyond-count-table td { white-space: nowrap; }
 }

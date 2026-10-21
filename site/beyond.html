@@ -29,12 +29,14 @@
 <script>
 // svlabo.jpから一括取得したランクマッチ(Worlds Beyond)の全ユーザーリーダーボード
 // （data/svlabo_leaderboards.csv）を閲覧するページ。PS出場選手・アマチュアを区別せず、
-// 掲載されている全ユーザーを対象にする。タブは2つだけ:
+// 掲載されている全ユーザーを対象にする。タブは3つ:
 // - 「レート」: svlabo本家と同じ期間×クラスの順位（クラスは「すべて」を選べば
 //   全クラス合算の最高レートTOP100になる）
 // - 「TOP N入り回数」: 全期間・全クラスを通じて「順位がN位以内だった回数」を数えた
 //   累計ランキング（ranking.html/compare.htmlのCR順位TOP N入り回数と同じ考え方だが、
 //   そちらはPS出場選手37人限定。ここではsvlaboに載っている全ユーザーが対象）
+// - 「BEYOND数」: 1期間で100位以内に入ったクラスの数で並べたランキングと全ビヨンド経験者
+//   （renderBeyondCountTab()のコメント参照）
 // 選手検索を使っている間は、期間・クラスの絞り込みを無視して全期間×全クラスを
 // 横断的に検索する（特定の選手を探したいだけなのに期間とクラスを両方合わせないと
 // 見つからないのは不便なため）。この横断検索は「レート」タブの時だけ意味を持つ
@@ -280,6 +282,141 @@ function renderCrCountTab(container) {
   draw();
 }
 
+// 「BEYOND数」タブ: 1期間のうちに100位以内に入ったクラスの数（BEYOND数）を、期間×選手ごとに数えて並べる。
+// 同じBEYOND数の中は平均順位の良い順にする。平均レートだと前半戦と後半戦でボーダーの高さが違い、
+// 期間をまたいだ比較が不公平になるため（前半戦はボーダーが低く後半戦は高い傾向がある）。
+// 平均順位まで同じなら平均レートの高い順。表示は100位まで（同着が100位をまたぐ場合は含める）。
+// 選手の同一判定はこのページの他の集計と同じく、期間内での player_name の正規化一致。
+const BEYOND_CLASS_ORDER = ["エルフ", "ロイヤル", "ウィッチ", "ドラゴン", "ナイトメア", "ビショップ", "ネメシス"];
+let beyondEntriesCache = null;
+
+function beyondEntries() {
+  if (beyondEntriesCache) return beyondEntriesCache;
+  const periods = [...new Set(svlabo.map(r => r.period))];
+  const groups = new Map();
+  svlabo.forEach(r => {
+    const rank = parseInt(r.rank, 10);
+    if (Number.isNaN(rank) || rank > 100) return;
+    const key = r.period + "|" + normalizeName(r.player_name);
+    let g = groups.get(key);
+    if (!g) {
+      g = { period: r.period, periodIndex: periods.indexOf(r.period), team_tag: r.team_tag, player_name: r.player_name, key: normalizeName(r.player_name), cls: {} };
+      groups.set(key, g);
+    }
+    // 同じ期間・同じクラスに同名の行が重複している場合は良い方の順位を採る
+    const rating = parseFloat(r.rating) || 0;
+    if (!g.cls[r.class] || rank < g.cls[r.class].rank) g.cls[r.class] = { rank, rating };
+  });
+  beyondEntriesCache = [...groups.values()].map(g => {
+    const list = Object.values(g.cls);
+    return {
+      ...g,
+      count: list.length,
+      avgRank: list.reduce((s, x) => s + x.rank, 0) / list.length,
+      avgRating: list.reduce((s, x) => s + x.rating, 0) / list.length,
+    };
+  }).sort((a, b) => b.count - a.count || a.avgRank - b.avgRank || b.avgRating - a.avgRating);
+  return beyondEntriesCache;
+}
+
+function beyondClassesHTML(e) {
+  return `<span class="beyond-classes">${BEYOND_CLASS_ORDER.map(c => {
+    const hit = e.cls[c];
+    return `<span class="beyond-cls ${hit ? "" : "off"}" title="${escapeAttr(c)}${hit ? ` ${hit.rank}位（${hit.rating}）` : " 圏外"}">
+      ${classIconHTML(c, 20)}<span>${hit ? hit.rank : "-"}</span></span>`;
+  }).join("")}</span>`;
+}
+
+function renderBeyondCountTab(container, svlaboPeriods) {
+  container.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label>期間</label>
+        <select id="beyondPeriodSelect">
+          <option value="">全期間</option>
+          ${svlaboPeriods.map(p => `<option value="${escapeAttr(p)}">${p}</option>`).join("")}
+        </select>
+      </div>
+      <div class="control-group">
+        <label>選手検索</label>
+        <input type="text" id="querySelect" placeholder="選手名で検索">
+      </div>
+    </div>
+    <div class="beyond-count-summary" id="beyondCountSummary"></div>
+    <div id="tableWrap"></div>
+    <h2 class="beyond-full-title">全ビヨンド経験者</h2>
+    <p class="beyond-full-lead">1期間で7クラスすべて100位以内に入ったことがある選手です。達成回数の多い順、同じ回数の中では最も良い平均順位の順に並べています。</p>
+    <div id="beyondFullWrap"></div>
+  `;
+  const periodSelect = container.querySelector("#beyondPeriodSelect");
+  const querySelect = container.querySelector("#querySelect");
+  querySelect.value = filters.query;
+  const all = beyondEntries();
+
+  function draw() {
+    filters.query = querySelect.value;
+    const period = periodSelect.value;
+    const scope = all.filter(e => period === "" || e.period === period);
+    // 順位は「BEYOND数＋平均順位」が同じなら同着（並び順と同じキーで振る）
+    const ranked = scope.map(e => ({ ...e }));
+    assignCompetitionRanks(ranked, e => `${e.count}|${e.avgRank.toFixed(4)}`);
+
+    const counts = {};
+    scope.forEach(e => { counts[e.count] = (counts[e.count] || 0) + 1; });
+    container.querySelector("#beyondCountSummary").innerHTML =
+      [7, 6, 5, 4, 3, 2].map(n => `<span>${n}個: ${counts[n] || 0}件</span>`).join("");
+
+    // 通常は100位まで。検索中は順位を保ったまま、100位より下も含めて該当者を出す。
+    const rows = filters.query.trim() ? applySearch(ranked, filters.query) : ranked.filter(e => e.rank <= 100);
+    const showPeriod = period === "";
+    const body = rows.map(e => `
+      <tr class="${rankRowClass(e.rank)}">
+        <td class="rank-value">${e.rank}位</td>
+        <td>${teamCellHTML(e.team_tag)}</td>
+        <td>${playerNameCellHTML(e.team_tag, e.player_name)}</td>
+        ${showPeriod ? `<td class="beyond-period">${escapeAttr(e.period)}</td>` : ""}
+        <td class="rank-value">${e.count}<span class="beyond-of">/7</span></td>
+        <td>${beyondClassesHTML(e)}</td>
+        <td class="rank-value">${e.avgRank.toFixed(1)}</td>
+        <td>${fmtNum(Math.round(e.avgRating))}</td>
+      </tr>`).join("");
+    container.querySelector("#tableWrap").innerHTML = rows.length ? `
+      <table class="rank-table beyond-count-table">
+        <thead><tr><th>順位</th><th>チーム</th><th>選手</th>${showPeriod ? "<th>期間</th>" : ""}<th>BEYOND数</th><th>クラス別の順位</th><th>平均順位</th><th>平均レート</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+  }
+
+  // 全ビヨンド経験者（期間の絞り込みとは関係なく全期間で集計する）
+  const byPlayer = new Map();
+  all.filter(e => e.count === 7).forEach(e => {
+    let g = byPlayer.get(e.key);
+    if (!g) { g = { team_tag: e.team_tag, player_name: e.player_name, list: [] }; byPlayer.set(e.key, g); }
+    g.list.push(e);
+  });
+  const fullPlayers = [...byPlayer.values()].map(g => {
+    g.list.sort((a, b) => b.periodIndex - a.periodIndex); // 古い期間から並べる（ファイルは新しい期間が先頭）
+    g.best = Math.min(...g.list.map(e => e.avgRank));
+    return g;
+  }).sort((a, b) => b.list.length - a.list.length || a.best - b.best);
+  container.querySelector("#beyondFullWrap").innerHTML = fullPlayers.length ? `
+    <table class="rank-table beyond-count-table">
+      <thead><tr><th>回数</th><th>チーム</th><th>選手</th><th>達成した期間（平均順位）</th></tr></thead>
+      <tbody>${fullPlayers.map(g => `
+        <tr>
+          <td class="rank-value">${g.list.length}回</td>
+          <td>${teamCellHTML(g.team_tag)}</td>
+          <td>${playerNameCellHTML(g.team_tag, g.player_name)}</td>
+          <td class="beyond-full-periods">${g.list.map(e => `<span>${escapeAttr(e.period)}（${e.avgRank.toFixed(1)}位）</span>`).join("")}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>` : `<div class="empty-note">まだ達成者がいません</div>`;
+
+  periodSelect.addEventListener("change", draw);
+  querySelect.addEventListener("input", draw);
+  draw();
+}
+
 function renderBoard(app, svlaboPeriods, classes) {
   app.innerHTML = `
     <div class="team-select-row" style="margin-bottom:14px;">
@@ -287,14 +424,18 @@ function renderBoard(app, svlaboPeriods, classes) {
         style="${boardMode === "rating" ? "background:var(--accent);" : ""}">レート</button>
       <button class="team-select-btn ${boardMode === "cr" ? "active" : ""}" id="modeCrBtn"
         style="${boardMode === "cr" ? "background:var(--accent);" : ""}">TOP N入り回数</button>
+      <button class="team-select-btn ${boardMode === "count" ? "active" : ""}" id="modeCountBtn"
+        style="${boardMode === "count" ? "background:var(--accent);" : ""}">BEYOND数</button>
     </div>
     <div id="tabContent"></div>
   `;
   document.getElementById("modeRatingBtn").addEventListener("click", () => { boardMode = "rating"; renderBoard(app, svlaboPeriods, classes); });
   document.getElementById("modeCrBtn").addEventListener("click", () => { boardMode = "cr"; renderBoard(app, svlaboPeriods, classes); });
+  document.getElementById("modeCountBtn").addEventListener("click", () => { boardMode = "count"; renderBoard(app, svlaboPeriods, classes); });
 
   const content = document.getElementById("tabContent");
   if (boardMode === "cr") renderCrCountTab(content);
+  else if (boardMode === "count") renderBeyondCountTab(content, svlaboPeriods);
   else renderRatingTab(content, svlaboPeriods, classes);
 }
 
