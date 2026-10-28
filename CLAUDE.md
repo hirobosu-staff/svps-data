@@ -105,8 +105,9 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 ```
  [取得元]                          [スクリプト]                        [データ]                [表示]
 
- shadowverse-reference.com  ──→  scrape_reference.py        ─┐
+ shadowverse-reference.com  ──→  scrape_reference.py        ─┐  （配信関連のみ。10月中旬から更新停止中）
  （非公式ファンサイト）                                        │
+ FxTwitter API (無料・非公式) ──→  scrape_x.py              ─┤  （Xフォロワー数。2026-10-28〜）
  YouTube (API or スクレイプ) ──→  scrape_youtube.py          ─┼→ snapshots/*.json
                                                              │        │
  ps.shadowverse-wb.com      ──→  scrape_ps_results.py       ─┘        │ update_history.py
@@ -249,8 +250,9 @@ def battle_is_played(b):
 
 ### 触ってはいけないもの
 
-- **`followers`**: 取得元が隔日更新で、9/15と9/16、9/17と9/18が全員一致するような並びになる。
-  「前日と同じ」補正をかけると正常な更新を潰す
+- **`followers`**: 2026-10-27 までの取得元（shadowverse-reference.com）は週1回（水曜）更新で、
+  1週間ずつ全員が同じ値の並びになっている。さらに 10/9〜10/27 は取得元の更新停止で 10/8 と同じ値。
+  「前日と同じ」補正をかけると正常な値を潰すので触らない。10/28 からは scrape_x.py（FxTwitter API）で毎日の実数
 - 期間集計系（`stream_duration` / `watch_time` / `video_view_count` / `video_upload_count`）
 
 ### 現在残っている既知の異常

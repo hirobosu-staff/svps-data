@@ -41,6 +41,13 @@ jobs:
         run: python scrape_reference.py
         continue-on-error: true  # 1サイト落ちても他の取得は続ける
 
+      - name: Fetch X follower counts (FxTwitter API)
+        # shadowverse-reference.com のXフォロワー数が 2026-10-08 で更新停止したため、こちらに移行。
+        # 認証不要の無料API。取れなかった選手はその日の行を書かない（scrape_x.py 参照）。
+        working-directory: scripts
+        run: python scrape_x.py
+        continue-on-error: true
+
       - name: Scrape ps.shadowverse-wb.com
         working-directory: scripts
         run: python scrape_ps_results.py

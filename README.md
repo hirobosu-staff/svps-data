@@ -17,7 +17,8 @@ svps-tracker/
 │                                          pushした時だけ動く、スクレイピングを伴わない即時デプロイ用ワークフロー
 ├── scripts/
 │   ├── common.py               共通処理（選手マスタ読み込み、CSV書き出しなど）
-│   ├── scrape_reference.py     shadowverse-reference.com から フォロワー数・配信関連 を取得（毎日自動）
+│   ├── scrape_reference.py     shadowverse-reference.com から 配信関連 を取得（毎日自動。Xフォロワー数は2026-10-28に scrape_x.py へ移行）
+│   ├── scrape_x.py             FxTwitter API（api.fxtwitter.com、無料・認証不要）から Xフォロワー数 を取得（毎日自動）
 │   ├── scrape_ps_results.py    ps.shadowverse-wb.com から PS戦績（個人） を取得（毎日自動）
 │   ├── scrape_youtube.py       各選手のYouTubeチャンネル登録者数を取得（毎日自動、API/スクレイピング併用）
 │   ├── scrape_player_images.py ps.shadowverse-wb.comから選手写真を取得（毎日自動。既にある選手はスキップ）
@@ -508,9 +509,15 @@ labelを`display:none`にするだけで従来のタブ表示に戻るため、*
   妨げないように `continue-on-error: true` にしていますが、パースが崩れた場合は
   `data/snapshots/*_debug*.json` や `*_raw*.json` を見て正規表現/パーサーを調整してください。
   （各スクリプトは失敗時もこのデバッグ用の生テキストを必ず保存し、ログにも直接出力するようにしています）
-- **shadowverse-reference.com**: Xフォロワー数は「現在値」のみが取得できます（このサイト自体に
-  過去の履歴はない）。そのため、フォロワー数の推移グラフは このスクリプトを動かし始めた日から
-  蓄積されていきます。配信時間・視聴時間・再生回数・動画本数は隔週の期間集計を過去分までさかのぼって
+- **Xフォロワー数（scrape_x.py）**: 2026-10-27までは shadowverse-reference.com から取っていましたが、
+  あちらは週1回（水曜）しか更新されず、2026-10-08 を最後に更新が止まったため、FxTwitter API
+  （`https://api.fxtwitter.com/2/profile/{x_handle}` の `user.followers`）に切り替えました。
+  無料・認証不要で、毎日実数が取れます。X公式APIは新規の無料枠が無く従量課金のみ、x.com の直接
+  スクレイピングはログイン必須の範囲が多くサーバーからはブロックされやすいため採用していません。
+  FxTwitter は非公式サービスなので、使えなくなった場合は別の手段を探す必要があります。
+  まれに一時的な 404 が返るため1人3回まで再試行し、それでも取れない選手はその日の行を書きません。
+  10/9〜10/27 は取得元が止まっていたため、10/8 と同じ値が入っています（さかのぼって取り直す手段はありません）。
+- **shadowverse-reference.com**: 配信時間・視聴時間・再生回数・動画本数は隔週の期間集計を過去分までさかのぼって
   取得できます。なお実データ確認の結果、各行の順位・選手名の後ろに単独のタブ文字だけの行が
   挟まっていたため、パース前にタブ文字を除去する処理を入れています。
 - **ps.shadowverse-wb.com（PS戦績）**: 「試合結果詳細」モーダルは実際にGitHub Actions上で

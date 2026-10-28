@@ -4,7 +4,8 @@ history.csv のスキーマ:
     date, team_tag, player_name, metric, period, value
 
 metric一覧:
-    followers            : Xフォロワー数（shadowverse-reference.com, periodは"current"）
+    followers            : Xフォロワー数（FxTwitter API = scrape_x.py, periodは"current"。
+                           2026-10-27までは shadowverse-reference.com 由来）
     stream_duration       : 配信時間[h]（shadowverse-reference.com, periodは隔週キー）
     watch_time            : 視聴時間[h]（同上）
     video_view_count      : 再生回数（同上）
@@ -142,6 +143,23 @@ def rows_from_youtube(snapshot):
     return rows
 
 
+def rows_from_x(snapshot):
+    """scrape_x.py（FxTwitter API）のXフォロワー数。team_tag/player_nameはplayers.csvの値がそのまま入っている。"""
+    rows = []
+    for r in snapshot or []:
+        rows.append(
+            {
+                "date": r["date"],
+                "team_tag": r["team_tag"],
+                "player_name": r["player_name"],
+                "metric": "followers",
+                "period": "current",
+                "value": r["value"],
+            }
+        )
+    return rows
+
+
 def match_rows_from_ps_results(snapshot, name_index):
     """ps_resultsのスナップショットから、試合結果タブ用の1試合1行データを組み立てる。
     対戦相手のteam_tagもplayers.csvから引いて付与する（相手が players.csv に無い
@@ -247,11 +265,13 @@ def main():
     svlabo_snap = latest_snapshot("svlabo", date_str)
     ps_snap = latest_snapshot("ps_results", date_str)
     youtube_snap = latest_snapshot("youtube", date_str)
+    x_snap = latest_snapshot("x", date_str)
 
     new_rows = []
     new_rows += rows_from_reference(reference_snap, name_index)
     new_rows += rows_from_svlabo(svlabo_snap)
     new_rows += rows_from_youtube(youtube_snap)
+    new_rows += rows_from_x(x_snap)
 
     print(f"[update_history] {len(new_rows)} new rows from today's snapshots")
     if not new_rows:

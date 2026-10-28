@@ -1,7 +1,7 @@
 """shadowverse-reference.com (非公式ファンサイト) から選手単位の指標をスクレイピングする。
 
 取得する指標 (typeパラメータ):
-  - followers            : Xフォロワー数（periodは"current"のみ、過去分は持っていない）
+  - followers            : Xフォロワー数（2026-10-28から取得をやめた。scrape_x.py に移行）
   - stream_duration       : 配信時間（隔週期間ごと）
   - watch_time            : 視聴時間（隔週期間ごと）
   - video_view_count      : 再生回数（隔週期間ごと）
@@ -24,7 +24,10 @@ from common import today_str, save_snapshot, parse_number
 BASE = "https://shadowverse-reference.com/"
 
 # 期間選択のいらない（=現在値のみの）指標
-CURRENT_ONLY_METRICS = ["followers"]
+# Xフォロワー数はこのサイトが週1回しか更新されず、2026-10-08 で更新が止まったため、
+# scrape_x.py（FxTwitter API）に移した。ここで取り続けると止まった古い値が毎日書き込まれ、
+# scrape_x.py が失敗した日に推移を汚すので、取得自体をやめている。
+CURRENT_ONLY_METRICS = []
 # 隔週期間で履歴が選べる指標
 PERIOD_METRICS = ["stream_duration", "watch_time", "video_view_count", "video_upload_count"]
 
