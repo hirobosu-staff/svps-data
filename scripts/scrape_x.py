@@ -14,8 +14,9 @@
 
 注意:
     - 非公式サービスなので、X側の仕様変更などで突然使えなくなる可能性がある。
-    - まれに存在するアカウントでも一時的に 404 が返る（2026-10-28の試験で37人中2人）。
-      そのため1人あたり最大3回まで再試行する。
+    - まれに存在するアカウントでも一時的に 404 が返る（2026-10-28の試験で37人中2人、
+      同日の GitHub Actions での初回実行でも37人中1人が3回連続で失敗した）。
+      そのため1人あたり最大3回まで再試行し、全員を一巡した後に失敗した選手だけもう一度試す。
     - 取れなかった選手はその日の行を書かない。古い値で埋めると推移が嘘になるため。
 
 出力: data/snapshots/x_{today}.json
@@ -33,6 +34,7 @@ API = "https://api.fxtwitter.com/2/profile/{handle}"
 HEADERS = {"User-Agent": "svps-data (https://github.com/hirobosu-staff/svps-data)"}
 MAX_TRIES = 3
 RETRY_WAIT_SEC = 5
+SECOND_PASS_WAIT_SEC = 60  # 一巡目で失敗した選手を再挑戦するまでの待ち時間
 INTERVAL_SEC = 1.0  # 選手ごとの間隔（レート制限には遠く及ばないが、短時間に集中させない）
 
 
@@ -61,23 +63,33 @@ def fetch_followers(handle: str):
 def main():
     date_str = today_str()
     rows, failed = [], []
-    for p in load_players():
-        handle = (p.get("x_handle") or "").strip().lstrip("@")
-        if not handle:
-            continue
-        followers = fetch_followers(handle)
-        if followers is None:
-            failed.append(handle)
-        else:
-            rows.append({
-                "date": date_str,
-                "team_tag": p["team_tag"],
-                "player_name": p["player_name"],
-                "x_handle": handle,
-                "value": followers,
-                "via": "fxtwitter",
-            })
-        time.sleep(INTERVAL_SEC)
+    targets = [p for p in load_players() if (p.get("x_handle") or "").strip().lstrip("@")]
+
+    def run(players):
+        missed = []
+        for p in players:
+            handle = p["x_handle"].strip().lstrip("@")
+            followers = fetch_followers(handle)
+            if followers is None:
+                missed.append(p)
+            else:
+                rows.append({
+                    "date": date_str,
+                    "team_tag": p["team_tag"],
+                    "player_name": p["player_name"],
+                    "x_handle": handle,
+                    "value": followers,
+                    "via": "fxtwitter",
+                })
+            time.sleep(INTERVAL_SEC)
+        return missed
+
+    missed = run(targets)
+    if missed:
+        print(f"[x] retrying {len(missed)} players after {SECOND_PASS_WAIT_SEC}s: {[p['x_handle'] for p in missed]}")
+        time.sleep(SECOND_PASS_WAIT_SEC)
+        missed = run(missed)
+    failed = [p["x_handle"] for p in missed]
 
     print(f"[x] fetched {len(rows)} players, failed {len(failed)}: {failed}")
     if rows:
