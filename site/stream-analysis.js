@@ -226,7 +226,7 @@ function renderStreamAnalysis(container, player, allStreams, color) {
     </div>
     <div id="streamBody"></div>`;
   const sel = container.querySelector("#streamPeriod");
-  sel.value = "90";
+  sel.value = "all"; // 初期表示は取得した全期間
 
   function draw() {
     const list = streamsInPeriod(mine, sel.value);
