@@ -2,9 +2,17 @@
   {
     "date": "2026-10-29",
     "team_tag": "CR",
+    "player_name": "Atom",
+    "x_handle": "Atomu_sv",
+    "value": 13319,
+    "via": "fxtwitter"
+  },
+  {
+    "date": "2026-10-29",
+    "team_tag": "CR",
     "player_name": "ふえた",
     "x_handle": "saboten_sv",
-    "value": 3999,
+    "value": 4001,
     "via": "fxtwitter"
   },
   {
@@ -12,7 +20,7 @@
     "team_tag": "CR",
     "player_name": "Winter",
     "x_handle": "msfsv",
-    "value": 3256,
+    "value": 3258,
     "via": "fxtwitter"
   },
   {
@@ -20,7 +28,7 @@
     "team_tag": "CR",
     "player_name": "空白",
     "x_handle": "Kuhaku_sv",
-    "value": 4263,
+    "value": 4265,
     "via": "fxtwitter"
   },
   {
@@ -28,7 +36,7 @@
     "team_tag": "CR",
     "player_name": "ふぇぐ",
     "x_handle": "feeeeeeeeeg",
-    "value": 34216,
+    "value": 34219,
     "via": "fxtwitter"
   },
   {
@@ -121,6 +129,14 @@
   },
   {
     "date": "2026-10-29",
+    "team_tag": "VRL",
+    "player_name": "まっつ",
+    "x_handle": "mattsu__sv",
+    "value": 4993,
+    "via": "fxtwitter"
+  },
+  {
+    "date": "2026-10-29",
     "team_tag": "MRG",
     "player_name": "マイト",
     "x_handle": "maito_2626",
@@ -140,7 +156,7 @@
     "team_tag": "MRG",
     "player_name": "Toby",
     "x_handle": "toby_24ss",
-    "value": 20089,
+    "value": 20091,
     "via": "fxtwitter"
   },
   {
@@ -156,7 +172,7 @@
     "team_tag": "MRG",
     "player_name": "もっちゃま",
     "x_handle": "mocha__mochama",
-    "value": 11907,
+    "value": 11908,
     "via": "fxtwitter"
   },
   {
@@ -204,7 +220,7 @@
     "team_tag": "RDL",
     "player_name": "折り紙",
     "x_handle": "Origami_sv",
-    "value": 5375,
+    "value": 5376,
     "via": "fxtwitter"
   },
   {
@@ -236,7 +252,7 @@
     "team_tag": "RDL",
     "player_name": "Stylish_deko",
     "x_handle": "Stylish_deko",
-    "value": 2042,
+    "value": 2043,
     "via": "fxtwitter"
   },
   {
@@ -276,23 +292,7 @@
     "team_tag": "LVH",
     "player_name": "智念せいら",
     "x_handle": "seira_chinen",
-    "value": 16534,
-    "via": "fxtwitter"
-  },
-  {
-    "date": "2026-10-29",
-    "team_tag": "CR",
-    "player_name": "Atom",
-    "x_handle": "Atomu_sv",
-    "value": 13317,
-    "via": "fxtwitter"
-  },
-  {
-    "date": "2026-10-29",
-    "team_tag": "VRL",
-    "player_name": "まっつ",
-    "x_handle": "mattsu__sv",
-    "value": 4993,
+    "value": 16535,
     "via": "fxtwitter"
   }
 ]
