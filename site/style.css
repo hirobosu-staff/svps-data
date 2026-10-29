@@ -344,6 +344,30 @@ details.team-result[open] .team-result__chevron { transform: rotate(180deg); }
 .beyond-full-periods span { display: inline-block; margin-right: 10px; }
 table.rank-table.beyond-count-table th { white-space: nowrap; }
 
+/* player.html「配信分析」（stream-analysis.js） */
+.stream-analysis { margin-top: 32px; }
+.stream-title { font-size: 18px; margin: 0 0 12px; }
+.stream-sub { font-size: 14px; margin: 22px 0 8px; }
+.stream-note { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.quick-stats.stream-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.stream-tiles .quick-stat { min-width: 0; padding: 10px 12px; }
+.stream-tiles .quick-stat .value { font-size: 18px; }
+.stream-tile-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.stream-tile-sub a { color: var(--accent); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stream-heat { display: grid; grid-template-columns: 22px repeat(24, minmax(0, 1fr)); gap: 2px; }
+.stream-heat__hour { font-size: 10px; color: var(--text-muted); text-align: left; }
+.stream-heat__wd { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; }
+.stream-heat__cell { aspect-ratio: 1; border-radius: 2px; background: rgba(47, 111, 237, var(--a)); outline: 1px solid #f0f1f3; }
+.stream-heat + .stream-note { margin-top: 8px; }
+table.rank-table.stream-kw { max-width: 560px; }
+table.rank-table.stream-kw th.num, table.rank-table.stream-kw td.num,
+table.rank-table.stream-list th.num, table.rank-table.stream-list td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stream-kw + .stream-note { margin-top: 6px; }
+.stream-list__date { white-space: nowrap; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+table.rank-table.stream-list td a { color: inherit; text-decoration: none; }
+table.rank-table.stream-list td a:hover { color: var(--accent); }
+.stream-more { margin-top: 10px; }
+
 /* スマホ用ナビ（ハンバーガー）のトグル。PCでは完全に隠し、ナビは従来通りのタブ表示。
    チェックボックス+labelで作っているのでJSは不要
    （<details>だとPCでナビ本体まで折りたたまれてしまうためこの方式にした）。 */
@@ -532,4 +556,11 @@ table.rank-table.beyond-count-table th { white-space: nowrap; }
   /* 列が多いので横スクロールで受ける（BEYOND数の表は#tableWrap、全ビヨンド経験者は#beyondFullWrap） */
   #beyondFullWrap { overflow-x: auto; }
   table.rank-table.beyond-count-table td { white-space: nowrap; }
+
+  /* --- 選手詳細「配信分析」 --- */
+  .quick-stats.stream-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stream-heat { grid-template-columns: 18px repeat(24, minmax(0, 1fr)); gap: 1px; }
+  .stream-heat__hour { font-size: 8px; }
+  .stream-heat__wd { font-size: 10px; }
+  table.rank-table.stream-list td:nth-child(2) { white-space: normal; min-width: 220px; }
 }

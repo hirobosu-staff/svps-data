@@ -109,6 +109,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
  （非公式ファンサイト）                                        │
  FxTwitter API (無料・非公式) ──→  scrape_x.py              ─┤  （Xフォロワー数。2026-10-28〜）
  YouTube (API or スクレイプ) ──→  scrape_youtube.py          ─┼→ snapshots/*.json
+ YouTube（ライブタブ・視聴ページ）──→ scrape_streams.py ──────────────→ data/streams.json（配信1本ごと）
                                                              │        │
  ps.shadowverse-wb.com      ──→  scrape_ps_results.py       ─┘        │ update_history.py
  （公式・Svelte製SPA）                                                 ↓
@@ -131,6 +132,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `data/result.json` | チーム順位（公式のスコアから集計） | 自動 |
 | `data/schedule.csv` | シーズン日程 56行 / 14節 | 自動 |
 | `data/svlabo_leaderboards.csv` | ランクマッチCRランキング | **手動のみ** |
+| `data/streams.json` | YouTube ライブアーカイブ1本ごと（タイトル・開始/終了・配信時間・再生数）。1配信1行のJSON | 自動 |
 
 ### ページ構成（`site/`）
 
@@ -139,7 +141,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `index.html` | **順位表**。先頭に「次の節」パネル。チームはアコーディオン、中身は軽量な選手名リストとチーム戦績へのリンク |
 | `team.html` | **チーム戦績**。チームごとに14節を1行ずつ並べ、行を開くとバトル内訳（アコーディオン）。下に選手別・使用クラス別・先攻/後攻。`?team=` |
 | `players.html` | **選手一覧**。チームチップで絞り込み + 検索。`?team=` `?q=` 対応 |
-| `player.html` | 選手個別（折れ線グラフ + 対戦履歴）。`?name=` |
+| `player.html` | 選手個別（折れ線グラフ + 配信分析）。`?name=`。グラフの初期表示は X フォロワー数。配信分析は `stream-analysis.js` |
 | `rounds.html` | 通算成績 |
 | `sections.html` | 節別結果（**最新の節がデフォルト選択**） |
 | `compare.html` | 比較表。`<body class="wide">` で横幅 1560px |
@@ -320,3 +322,4 @@ def battle_is_played(b):
 | 各取得元の制約 | 既知の制約・注意点 |
 | 順位の計算根拠 | チーム順位について（result.json） |
 | history.csv の列定義 | history.csv のスキーマ |
+| 配信分析の取得方法・対象外 | 配信分析について（scrape_streams.py / data/streams.json / stream-analysis.js） |

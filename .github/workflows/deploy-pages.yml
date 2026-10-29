@@ -17,6 +17,7 @@ on:
       - "data/result.json"
       - "data/svlabo_leaderboards.csv"
       - "data/battle_details.csv"
+      - "data/streams.json"
   workflow_dispatch: {}
 
 permissions:
@@ -48,6 +49,7 @@ jobs:
           cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
           cp -f data/schedule.csv _site/data/schedule.csv 2>/dev/null || true
           cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
+          cp -f data/streams.json _site/data/streams.json 2>/dev/null || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

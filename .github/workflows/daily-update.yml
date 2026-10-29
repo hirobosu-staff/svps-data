@@ -48,6 +48,15 @@ jobs:
         run: python scrape_x.py
         continue-on-error: true
 
+      - name: Fetch YouTube stream archives (streams.json)
+        # 選手詳細の「配信分析」用。各チャンネルのライブタブと視聴ページから、配信1本ごとの
+        # タイトル・開始/終了時刻・再生数を取る（APIキー不要）。初回は過去1年分をさかのぼるため
+        # 時間がかかり、1回600本までに制限して残りは翌日以降に回す（scrape_streams.py 参照）。
+        working-directory: scripts
+        run: python scrape_streams.py
+        timeout-minutes: 40
+        continue-on-error: true  # 失敗時は既存のdata/streams.jsonをそのまま残す
+
       - name: Scrape ps.shadowverse-wb.com
         working-directory: scripts
         run: python scrape_ps_results.py
@@ -122,6 +131,7 @@ jobs:
           cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
           cp -f data/battle_details.csv _site/data/battle_details.csv 2>/dev/null || true
           cp -f data/schedule.csv _site/data/schedule.csv 2>/dev/null || true
+          cp -f data/streams.json _site/data/streams.json 2>/dev/null || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

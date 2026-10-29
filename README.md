@@ -19,6 +19,8 @@ svps-tracker/
 │   ├── common.py               共通処理（選手マスタ読み込み、CSV書き出しなど）
 │   ├── scrape_reference.py     shadowverse-reference.com から 配信関連 を取得（毎日自動。Xフォロワー数は2026-10-28に scrape_x.py へ移行）
 │   ├── scrape_x.py             FxTwitter API（api.fxtwitter.com、無料・認証不要）から Xフォロワー数 を取得（毎日自動）
+│   ├── scrape_streams.py       YouTube のライブアーカイブを1本ずつ取得し data/streams.json に貯める（毎日自動、APIキー不要。
+│   │                             詳細は「配信分析について」参照）
 │   ├── scrape_ps_results.py    ps.shadowverse-wb.com から PS戦績（個人） を取得（毎日自動）
 │   ├── scrape_youtube.py       各選手のYouTubeチャンネル登録者数を取得（毎日自動、API/スクレイピング併用）
 │   ├── scrape_player_images.py ps.shadowverse-wb.comから選手写真を取得（毎日自動。既にある選手はスキップ）
@@ -46,6 +48,8 @@ svps-tracker/
 │   │                             対戦カード・スコア。詳細は「日程について」参照）
 │   ├── battle_details.csv      svlabo.jpの節別記事から取り込んだ試合詳細（毎日自動更新。
 │   │                             使用/未使用クラス・配信URL付き。詳細は「節別詳細について」参照）
+│   ├── streams.json            YouTube ライブアーカイブ1本ごとのタイトル・開始/終了時刻・配信時間・再生数
+│   │                             （毎日自動更新。1配信1行のJSON。詳細は「配信分析について」参照）
 │   └── snapshots/               日次の生スクレイピング結果（デバッグ用、実行のたびに増える）
 └── site/                        表示用ページ。ページごとにファイルを分けており、今後ページを
     ├── style.css                  増やしたり構成を変えたりしやすい作りにしてある
@@ -58,7 +62,8 @@ svps-tracker/
     ├── players.html             選手一覧（37人をフラットに表示。チーム絞り込みチップが主、名前検索が従。
     │                             カードから選手詳細へ飛ぶ。詳細は「選手一覧について」参照）
     ├── player.html              選手詳細（写真・現在値・X/YouTubeへのリンク・折れ線グラフ、
-    │                             ?name=選手名 で表示選手を切替）
+    │                             ?name=選手名 で表示選手を切替。下部に「配信分析」）
+    ├── stream-analysis.js       選手詳細の「配信分析」（data/streams.jsonを読む。player.htmlだけが使う）
     ├── ranking.html             旧ランキングページ。比較の「表で比較」と役割が重複していたため廃止し、
     │                             compare.htmlへ転送するだけのリダイレクトスタブになっている
     ├── rounds.html              通算成績（全選手のリーダーボード＋個人の対戦履歴。
@@ -622,6 +627,37 @@ labelを`display:none`にするだけで従来のタブ表示に戻るため、*
 `computeTeamStandings()`が自動的に`data/match_results.csv`（選手個人の試合結果の集計）から
 順位を計算するフォールバックに切り替わります。ただしこちらは個人戦の合計ポイントだけを見ており、
 公式の得失差ボーナスなどは反映されないため、正式な順位としてはresult.jsonの自動取得を優先します。
+
+## 配信分析について（scrape_streams.py / data/streams.json / stream-analysis.js）
+
+選手詳細ページの下部に、YouTube のライブ配信の分析を出しています。期間（直近30日・直近90日・取得した全期間）を
+選べ、次の内容を表示します。
+
+- 配信回数（週あたり）、配信した日数、合計・平均配信時間、平均再生数、最多再生
+- 配信ごとの再生数（棒）と配信時間（折れ線）、週ごとの配信時間
+- 配信を始める曜日×時間帯（日本時間）のヒートマップ
+- タイトルの傾向（クラス名や「ランクマッチ」「ミラー」「雑談」などのキーワードごとの回数と平均再生数）
+- 配信一覧（日時・配信時間・再生数で並べ替え可、YouTube へのリンク付き）
+
+**取得方法（APIキーなし）**: `scrape_streams.py` が毎日、各チャンネルの「ライブ」タブ
+（`/channel/{id}/streams`）に埋め込まれた ytInitialData から直近30本の動画IDを読み、新しい配信だけ
+視聴ページ（`/watch?v=`）の ytInitialPlayerResponse から正確な開始・終了時刻、配信時間、再生数を取ります。
+初回だけはライブタブの続き（continuation）をたどり、1年前より新しい配信までさかのぼります。1回の実行で
+視聴ページを開くのは600本までで、残りは翌日以降に回します。開始から14日以内の配信は再生数を毎日取り直します。
+
+**対象外**: メンバー限定・非公開の配信（`status: "unavailable"`）と、Twitch での配信。YouTube チャンネルが
+無い選手（Chappy）は配信分析が出ません。
+
+**壊れたとき**: YouTube の画面の作り（JSONの構造）が変わると取れなくなります。その場合も既存の
+`streams.json` は消さず、取れたチャンネル・配信だけを更新します。視聴ページが10回続けて失敗した日
+（ボット判定などを疑う）は、その日の取得を打ち切ります。
+
+**APIキーを使う場合**: YouTube Data API の `playlistItems.list` と `videos.list`（liveStreamingDetails /
+contentDetails / statistics）で同じ項目が取れます。`streams.json` の形はそのままで、視聴ページを読む部分を
+置き換えれば移行できます（2026-10 時点ではキーなしで運用。ユーザー判断で将来の選択肢として残している）。
+
+**タイトルの傾向の注意**: 多くの配信タイトルに定型で入る「Shadowverse: Worlds Beyond」は、キーワード判定の
+前に取り除いています（残すと全配信が「BEYOND」に数えられるため）。
 
 ## 選手写真について（scrape_player_images.py）
 

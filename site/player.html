@@ -27,6 +27,7 @@
 </main>
 
 <script src="common.js"></script>
+<script src="stream-analysis.js"></script>
 <script>
 let chart = null;
 
@@ -76,9 +77,9 @@ async function boot() {
   const app = document.getElementById("app");
   const name = new URLSearchParams(location.search).get("name");
 
-  let data;
+  let data, streams;
   try {
-    data = await loadData();
+    [data, streams] = await Promise.all([loadData(), loadStreams()]);
   } catch (err) {
     app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
     return;
@@ -158,6 +159,7 @@ async function boot() {
       </div>
       <div class="chart-box"><canvas id="chart"></canvas></div>
     ` : `<div class="empty-note">この選手のデータはまだありません</div>`}
+    <section class="stream-analysis" id="streamAnalysis"></section>
   `;
 
   if (metrics.length) {
@@ -168,6 +170,7 @@ async function boot() {
     sel.addEventListener("change", () => drawChart(history, name, sel.value, color));
     drawChart(history, name, sel.value, color);
   }
+  renderStreamAnalysis(document.getElementById("streamAnalysis"), player, streams, color);
 }
 
 boot();
