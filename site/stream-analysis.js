@@ -80,19 +80,30 @@ function streamSummaryHTML(list, periodId, coverageStart) {
   </div>`;
 }
 
-// 曜日×開始時刻（日本時間）の配信回数。色の濃さで多さを表す。
+// 曜日×時間帯（日本時間）ごとに、その時間に配信していた回数。色の濃さで多さを表す。
+// 1本の配信を開始から終了まで1時間刻みでたどり、少しでも重なった時間帯をそれぞれ1回と数える
+// （例: 21:30〜翌1:10 の配信は、その曜日の21・22・23時台と、翌日の0・1時台に1回ずつ）。
+const HOUR_MS = 3600 * 1000;
 function streamHeatmapHTML(list) {
   const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
-  list.forEach(s => { const d = toJst(s.start_at); grid[d.getUTCDay()][d.getUTCHours()]++; });
+  list.forEach(s => {
+    const start = new Date(s.start_at).getTime();
+    let end = s.end_at ? new Date(s.end_at).getTime() : start + (s.duration_sec || 0) * 1000;
+    end = Math.min(Math.max(end, start + 1), start + 48 * HOUR_MS); // 異常に長い値でも48時間で打ち切る
+    for (let t = Math.floor(start / HOUR_MS) * HOUR_MS; t < end; t += HOUR_MS) {
+      const d = new Date(t + 9 * HOUR_MS); // 日本時間
+      grid[d.getUTCDay()][d.getUTCHours()]++;
+    }
+  });
   const max = Math.max(1, ...grid.flat());
   const order = [1, 2, 3, 4, 5, 6, 0]; // 月曜始まり
   const head = `<div class="stream-heat__corner"></div>` +
     Array.from({ length: 24 }, (_, h) => `<div class="stream-heat__hour">${h % 3 === 0 ? h : ""}</div>`).join("");
   const rows = order.map(wd => `<div class="stream-heat__wd">${WEEKDAYS_JA[wd]}</div>` +
     grid[wd].map((n, h) => `<div class="stream-heat__cell" style="--a:${n ? (0.15 + 0.85 * n / max).toFixed(2) : 0}"
-      title="${WEEKDAYS_JA[wd]}曜 ${h}時台: ${n}回"></div>`).join("")).join("");
+      title="${WEEKDAYS_JA[wd]}曜 ${h}時台に配信していた回数: ${n}回"></div>`).join("")).join("");
   return `<div class="stream-heat">${head}${rows}</div>
-    <div class="stream-note">配信を始めた時刻（日本時間）で数えています。濃いほど多い。</div>`;
+    <div class="stream-note">配信の開始から終了までにかかった時間帯（日本時間）を、1本ごとに1回と数えています。濃いほど多い。</div>`;
 }
 
 // タイトルのキーワードごとの回数と平均再生数（期間内の全体平均との差も出す）
@@ -231,7 +242,7 @@ function renderStreamAnalysis(container, player, allStreams, color) {
       <div class="chart-box"><canvas id="streamViewsChart"></canvas></div>
       <h3 class="stream-sub">週ごとの配信時間</h3>
       <div class="chart-box"><canvas id="streamWeeklyChart"></canvas></div>
-      <h3 class="stream-sub">配信を始める曜日と時間帯</h3>
+      <h3 class="stream-sub">配信している曜日と時間帯</h3>
       <div class="chart-box">${streamHeatmapHTML(list)}</div>
       <h3 class="stream-sub">タイトルの傾向</h3>
       ${streamKeywordsHTML(list)}
