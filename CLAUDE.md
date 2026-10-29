@@ -109,7 +109,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
  （非公式ファンサイト）                                        │
  FxTwitter API (無料・非公式) ──→  scrape_x.py              ─┤  （Xフォロワー数。2026-10-28〜）
  YouTube (API or スクレイプ) ──→  scrape_youtube.py          ─┼→ snapshots/*.json
- YouTube（ライブタブ・視聴ページ）──→ scrape_streams.py ──────────────→ data/streams.json（配信1本ごと）
+ YouTube（ライブタブ＋Data API）──→ scrape_streams.py ──────────────→ data/streams.json（配信1本ごと）
                                                              │        │
  ps.shadowverse-wb.com      ──→  scrape_ps_results.py       ─┘        │ update_history.py
  （公式・Svelte製SPA）                                                 ↓
@@ -296,7 +296,8 @@ def battle_is_played(b):
 
 ## 8. 保留・未実装
 
-- YouTube Data API キーの設定（ユーザーが不要と判断。設定すれば丸め問題が解消する）
+- （済）YouTube Data API キー: 2026-10-29 に配信分析のため設定することになった（GitHub Secrets `YOUTUBE_API_KEY`）。
+  Actions から YouTube の視聴ページを読むとボット判定で弾かれるため、配信1本ごとの日時・再生数はキーが前提
 - Twitch フォロワー数（API仕様上、本人のOAuthが必要で現実的に不可。README に調査結果あり）
 - 過去データのバックフィル（reference側は4月前半まで遡れる）
 - クラス別勝率などの追加集計ページ

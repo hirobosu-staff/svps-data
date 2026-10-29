@@ -2,19 +2,18 @@
 
 選手詳細ページ（player.html）の「配信分析」（配信頻度・配信時間・再生数・タイトル）の元データ。
 
-取得方法（APIキーなし）:
+取得方法:
     1. チャンネルの「ライブ」タブ  https://www.youtube.com/channel/{id}/streams?hl=ja&gl=JP
        ページに埋め込まれた ytInitialData から、直近30本の動画ID・タイトル・長さを読む。
        初回だけは続き（continuation）をたどって、1年前より新しい配信までさかのぼる。
-    2. 各配信の視聴ページ  https://www.youtube.com/watch?v={id}&hl=ja&gl=JP
-       ytInitialPlayerResponse から、正確な配信開始・終了時刻、長さ、再生数を読む。
+    2. 各配信の詳細（正確な開始・終了時刻、長さ、再生数）
+       環境変数 YOUTUBE_API_KEY があれば YouTube Data API の videos.list（50本ずつ、1回1ユニット）で取る。
+       無ければ視聴ページ（/watch?v=）の ytInitialPlayerResponse を読む。ただし GitHub Actions からは
+       YouTube にボットと判定されて LOGIN_REQUIRED が返り、取れなかった（2026-10-29）。そのため
+       Actions では API キーが前提。視聴ページ方式は手元で動かすとき用に残している。
        新しく見つかった配信と、開始から REFRESH_DAYS 日以内の配信（再生数がまだ伸びる）が対象。
-    どちらも YouTube の画面の作り（JSONの構造）に依存しているので、変わると取れなくなる。
+    1. は YouTube の画面の作り（JSONの構造）に依存しているので、変わると新しい配信が見つからなくなる。
     その場合も既存の streams.json は消さずに残す（取れたチャンネル・配信だけを更新する）。
-
-将来 YouTube Data API キーを使う場合:
-    playlistItems.list（アップロード一覧）と videos.list（liveStreamingDetails / contentDetails /
-    statistics）で同じ項目が取れる。streams.json の形はそのままで、2. の部分を置き換えればよい。
 
 出力: data/streams.json
     {"updated": "YYYY-MM-DD",
@@ -56,6 +55,8 @@ MAX_CONSECUTIVE_FAILS = 10    # 視聴ページがこれだけ続けて失敗し
 GIVE_UP_STATUSES = {"UNPLAYABLE", "ERROR"}
 
 DURATION_RE = re.compile(r"^\d+(?::\d{2}){1,2}$")
+API_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
+ISO_DURATION_RE = re.compile(r"^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
 
 
 def now_utc():
@@ -201,6 +202,65 @@ def fetch_watch(session, video_id):
     }, "ok"
 
 
+def parse_iso_duration(s):
+    """'PT4H24M13S' のような ISO 8601 の長さを秒にする。"""
+    m = ISO_DURATION_RE.match(s or "")
+    if not m:
+        return None
+    d, h, mi, se = (int(x) if x else 0 for x in m.groups())
+    return ((d * 24 + h) * 60 + mi) * 60 + se
+
+
+def fetch_details_api(api_key, video_ids):
+    """videos.list で最大50本ずつ詳細を取る。
+    戻り値: ({video_id: (detail or None, 理由)}, エラー文字列 or None)。
+    一覧に返ってこなかった動画は削除・非公開とみなす。途中でエラーになったら、そこまでの結果を返す。"""
+    out = {}
+    try:
+        _fetch_details_api(api_key, video_ids, out)
+    except Exception as e:
+        return out, str(e)[:300]
+    return out, None
+
+
+def _fetch_details_api(api_key, video_ids, out):
+    for i in range(0, len(video_ids), 50):
+        batch = video_ids[i:i + 50]
+        resp = requests.get(API_VIDEOS, params={
+            "part": "snippet,contentDetails,statistics,liveStreamingDetails",
+            "id": ",".join(batch), "key": api_key, "maxResults": 50,
+        }, timeout=30)
+        if resp.status_code != 200:
+            # キー無効・クォータ超過など。ここで止めて、残りは pending のまま翌日に回す
+            raise RuntimeError(f"videos.list HTTP {resp.status_code}: {resp.text[:200]}")
+        found = {it["id"]: it for it in resp.json().get("items", [])}
+        for vid in batch:
+            it = found.get(vid)
+            if it is None:
+                out[vid] = (None, "status_ERROR")  # 削除・非公開
+                continue
+            live = it.get("liveStreamingDetails") or {}
+            start = parse_iso(live.get("actualStartTime"))
+            end = parse_iso(live.get("actualEndTime"))
+            if start and not end:
+                out[vid] = (None, "live_now")
+                continue
+            if not start:
+                out[vid] = (None, "status_UNPLAYABLE")  # ライブ配信ではない（予定のまま流れた枠など）
+                continue
+            views = (it.get("statistics") or {}).get("viewCount")
+            duration = int((end - start).total_seconds()) if end > start else \
+                parse_iso_duration((it.get("contentDetails") or {}).get("duration"))
+            out[vid] = ({
+                "title": (it.get("snippet") or {}).get("title") or "",
+                "start_at": iso_utc(start),
+                "end_at": iso_utc(end),
+                "duration_sec": duration,
+                "view_count": int(views) if views and str(views).isdigit() else None,
+            }, "ok")
+        time.sleep(0.2)
+
+
 def parse_iso(s):
     if not s:
         return None
@@ -288,12 +348,30 @@ def main():
     refresh = [s for s in store["streams"] if s["status"] == "ok" and (s.get("start_at") or "") >= cutoff
                and s.get("views_at") != date_str]
     queue = pending + refresh
+    api_key = os.environ.get("YOUTUBE_API_KEY")
+    api_results = None
+    if api_key:
+        # API は1回の実行で全件取れる（50本で1ユニット）ので、件数の上限はかけない
+        api_results, err = fetch_details_api(api_key, [r["video_id"] for r in queue])
+        summary["via"] = "api"
+        if err:
+            # キー無効・クォータ超過など。取れたところまで反映し、残りは pending のまま翌日に回す
+            print(f"[streams] YouTube Data API failed ({err}); got {len(api_results)} before the error", file=sys.stderr)
+            summary["api_error"] = err
+        queue = [r for r in queue if r["video_id"] in api_results]
+    else:
+        summary["via"] = "watch_page"
+        queue = queue[:MAX_WATCH_PER_RUN]
     consecutive_fails = 0
-    for rec in queue[:MAX_WATCH_PER_RUN]:
-        try:
-            detail, why = fetch_watch(session, rec["video_id"])
-        except Exception as e:
-            detail, why = None, f"error_{type(e).__name__}"
+    for rec in queue:
+        if api_results is not None:
+            detail, why = api_results.get(rec["video_id"], (None, "missing"))
+        else:
+            try:
+                detail, why = fetch_watch(session, rec["video_id"])
+            except Exception as e:
+                detail, why = None, f"error_{type(e).__name__}"
+            time.sleep(REQUEST_INTERVAL_SEC)
         summary["watch_fetched"] += 1
         if detail:
             consecutive_fails = 0
@@ -307,12 +385,11 @@ def main():
                 consecutive_fails = 0
             else:
                 consecutive_fails += 1
-                if consecutive_fails >= MAX_CONSECUTIVE_FAILS:
+                if api_results is None and consecutive_fails >= MAX_CONSECUTIVE_FAILS:
                     print(f"[streams] {consecutive_fails} watch pages failed in a row ({why}); stopping for today",
                           file=sys.stderr)
                     summary["stopped_early"] = why
                     break
-        time.sleep(REQUEST_INTERVAL_SEC)
 
     summary["left_pending"] = sum(1 for s in store["streams"] if s["status"] == "pending")
     summary["total"] = len(store["streams"])
@@ -320,10 +397,14 @@ def main():
           f"failed {summary['watch_failed']}, pending left {summary['left_pending']}, total {summary['total']}")
     save_snapshot("streams", [summary])
 
-    if channels_ok == 0:
+    detail_updates = summary["watch_fetched"] - sum(summary["watch_failed"].values())
+    if channels_ok == 0 and detail_updates <= 0:
         print("WARNING: no channel could be read. YouTube page structure may have changed. streams.json is left as is.",
               file=sys.stderr)
         sys.exit(1)
+    if channels_ok == 0:
+        print("WARNING: live tabs could not be read (new streams are not discovered today), "
+              "but details of known streams were updated.", file=sys.stderr)
     store["updated"] = date_str
     write_store(store)
 
