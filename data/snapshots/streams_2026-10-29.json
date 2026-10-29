@@ -1,0 +1,158 @@
+[
+  {
+    "date": "2026-10-29",
+    "channels": {
+      "Atom": {
+        "listed": 90,
+        "new": 90
+      },
+      "ふえた": {
+        "listed": 44,
+        "new": 44
+      },
+      "Winter": {
+        "listed": 17,
+        "new": 17
+      },
+      "空白": {
+        "listed": 101,
+        "new": 101
+      },
+      "ふぇぐ": {
+        "listed": 120,
+        "new": 120
+      },
+      "CQCQ": {
+        "listed": 179,
+        "new": 179
+      },
+      "ヘイム": {
+        "listed": 210,
+        "new": 210
+      },
+      "TBT": {
+        "listed": 70,
+        "new": 70
+      },
+      "ねぎま": {
+        "listed": 165,
+        "new": 165
+      },
+      "ミル": {
+        "listed": 150,
+        "new": 150
+      },
+      "ユーリ": {
+        "listed": 210,
+        "new": 210
+      },
+      "かなで": {
+        "listed": 52,
+        "new": 52
+      },
+      "MingiGod": {
+        "listed": 114,
+        "new": 114
+      },
+      "Mishadow51": {
+        "listed": 0,
+        "new": 0
+      },
+      "Terarina": {
+        "listed": 60,
+        "new": 60
+      },
+      "monakawan": {
+        "listed": 51,
+        "new": 51
+      },
+      "まっつ": {
+        "listed": 68,
+        "new": 68
+      },
+      "マイト": {
+        "listed": 240,
+        "new": 240
+      },
+      "glory": {
+        "listed": 213,
+        "new": 213
+      },
+      "Toby": {
+        "listed": 150,
+        "new": 150
+      },
+      "Spicies": {
+        "listed": 240,
+        "new": 240
+      },
+      "もっちゃま": {
+        "listed": 179,
+        "new": 179
+      },
+      "あぐのむ": {
+        "listed": 60,
+        "new": 60
+      },
+      "たばた": {
+        "listed": 60,
+        "new": 60
+      },
+      "ぱらちゃん": {
+        "listed": 209,
+        "new": 209
+      },
+      "拓海": {
+        "listed": 150,
+        "new": 150
+      },
+      "つきあかめん": {
+        "listed": 238,
+        "new": 238
+      },
+      "折り紙": {
+        "listed": 164,
+        "new": 164
+      },
+      "山田レクイエム": {
+        "listed": 2,
+        "new": 2
+      },
+      "ぱんさく": {
+        "listed": 47,
+        "new": 47
+      },
+      "Stylish_deko": {
+        "listed": 100,
+        "new": 100
+      },
+      "Era53": {
+        "listed": 240,
+        "new": 240
+      },
+      "rikka": {
+        "listed": 210,
+        "new": 210
+      },
+      "だーよね": {
+        "listed": 60,
+        "new": 60
+      },
+      "Hirobosu": {
+        "listed": 60,
+        "new": 60
+      },
+      "智念せいら": {
+        "listed": 236,
+        "new": 236
+      }
+    },
+    "watch_fetched": 10,
+    "watch_failed": {
+      "status_LOGIN_REQUIRED": 10
+    },
+    "stopped_early": "status_LOGIN_REQUIRED",
+    "left_pending": 4559,
+    "total": 4559
+  }
+]
