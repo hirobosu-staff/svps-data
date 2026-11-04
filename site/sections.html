@@ -22,7 +22,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -44,7 +44,7 @@ async function boot() {
   try {
     [data, battleDetails] = await Promise.all([loadData(), loadBattleDetails()]);
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   playerLookup = buildPlayerLookup(data.players);
@@ -53,7 +53,7 @@ async function boot() {
 
 function renderSectionsView(container, battleDetails) {
   if (!battleDetails.length) {
-    container.innerHTML = `<div class="empty-note">まだ節別詳細のデータがありません</div>`;
+    container.innerHTML = stateHTML("empty", "まだ節別詳細のデータがありません");
     return;
   }
   // 選択肢は節番号の小さい順に並べるが、初期選択は一番大きい節（＝最新節）にする。

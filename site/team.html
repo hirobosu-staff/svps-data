@@ -22,7 +22,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -121,7 +121,7 @@ function playerCellHTML(name, pool, used) {
 function roundDetailHTML(team, item) {
   const { source, battles } = roundBattles(team, item.row);
   if (source === "none") {
-    return `<div class="empty-note">このROUNDのバトル内訳はまだ取得できていません</div>`;
+    return stateHTML("empty", "このROUNDのバトル内訳はまだ取得できていません");
   }
   const note = source === "official"
     ? `<div class="team-result__note">この節は節別詳細（svlabo）のデータが無いため、公式サイトの個人戦3枠のみ表示しています。チームバトル・クラス候補・配信リンクはありません。</div>`
@@ -296,7 +296,7 @@ function renderTeam() {
   const wrap = document.getElementById("teamView");
   const rounds = teamRounds(currentTeam);
   if (!rounds.length) {
-    wrap.innerHTML = summaryHTML(currentTeam) + `<div class="empty-note">日程データがありません</div>`;
+    wrap.innerHTML = summaryHTML(currentTeam) + stateHTML("empty", "日程データがありません");
     return;
   }
   wrap.innerHTML = `
@@ -313,7 +313,7 @@ async function boot() {
     [data, matches, resultJson, schedule, battleDetails] = await Promise.all([
       loadData(), loadMatches(), loadResultJson(), loadSchedule(), loadBattleDetails()]);
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   ({ players, images } = data);

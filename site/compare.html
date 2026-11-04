@@ -23,7 +23,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -32,15 +32,14 @@ let chart = null;
 let selected = new Set();
 let players = [], history = [];
 
-// 折れ線グラフとして意味のある指標だけ（player.htmlと同じ考え方）
+// 折れ線グラフとして意味のある指標だけ（player.htmlと同じ考え方）。
+// 「累積配信時間」は取得元（shadowverse-reference.com）の更新が2026年10月中旬で止まったため外した。
 const CHART_METRICS = [
   { id: "followers", requires: "followers" },
   { id: "youtube_subscribers", requires: "youtube_subscribers" },
-  { id: "stream_duration_cumulative", requires: "stream_duration" },
 ];
 
 function seriesFor(metric, playerName) {
-  if (metric === "stream_duration_cumulative") return buildCumulativeSeries(history, playerName, "stream_duration");
   const rows = history.filter(r => r.player_name === playerName && r.metric === metric).slice().sort((a, b) => a.date < b.date ? -1 : 1);
   return { labels: rows.map(r => r.date), data: rows.map(r => parseFloat(r.value)) };
 }
@@ -49,10 +48,7 @@ function drawCompareChart() {
   const metric = document.getElementById("metricSelect").value;
   const names = [...selected];
 
-  // 選手ごとにX軸(labels)が違う可能性があるので、全員分のlabelsを合成してから各系列をそこに合わせる。
-  // ここではまだ生のキー（累積配信時間ならperiod文字列"jul_early_2026"、それ以外は日付）のまま
-  // 扱う。表示用の日本語変換は、並び替えが終わったあとの最後の一手だけにする（先に変換すると
-  // "10月"のような2桁月が出てきたときに文字列ソートで順序が崩れるため）。
+  // 選手ごとにX軸(labels)が違う可能性があるので、全員分のlabels（日付）を合成してから各系列をそこに合わせる。
   const allLabelsSet = new Set();
   const seriesByName = {};
   names.forEach(name => {
@@ -60,9 +56,8 @@ function drawCompareChart() {
     seriesByName[name] = s;
     s.labels.forEach(l => allLabelsSet.add(l));
   });
-  const isCumulative = metric === "stream_duration_cumulative";
-  const rawLabels = [...allLabelsSet].sort(isCumulative ? (a, b) => periodSortKey(a) - periodSortKey(b) : undefined);
-  const labels = isCumulative ? rawLabels.map(periodLabel) : rawLabels;
+  const rawLabels = [...allLabelsSet].sort();
+  const labels = rawLabels;
 
   const datasets = names.map((name) => {
     const s = seriesByName[name];
@@ -86,11 +81,11 @@ function drawCompareChart() {
   if (chart) chart.destroy();
   const wrap = document.getElementById("chartWrap");
   if (!names.length) {
-    wrap.innerHTML = `<div class="empty-note">比較したい選手をチームボタンか下のチップから選んでください</div>`;
+    wrap.innerHTML = stateHTML("empty", "比較したい選手を選んでください", "チームボタンか、下の選手のチップから選べます");
     return;
   }
   if (typeof Chart === "undefined") {
-    wrap.innerHTML = `<div class="empty-note">グラフライブラリの読み込みに失敗しました</div>`;
+    wrap.innerHTML = stateHTML("error", "グラフを表示できませんでした", "グラフの部品を読み込めませんでした。時間をおいて再読み込みしてください");
     return;
   }
   wrap.innerHTML = `<canvas id="chart"></canvas>`;
@@ -154,10 +149,13 @@ function renderTeamButtons() {
 // 月間ポスト数（Xの投稿数）はスクレイピングが現実的に難しいため含めていない。
 // 最高順位（crRank）はdata/svlabo_leaderboards.csv（全ユーザー分）から選手ごとの最良順位を
 // 算出したもの（crBestRankForPlayer()参照）。BEYOND回数(100位以内)は同データから
-// 「順位が100位以内だった回数」を数えたもの（crTopNCounts()参照）。配信時間・動画本数は、
-// このサイトの他のページと同じ考え方（隔週の生値ではなく積み上げた累積値の方が意味がある）
-// に合わせて累積値で出す。
+// 「順位が100位以内だった回数」を数えたもの（crTopNCounts()参照）。
+// 配信の列（回数・時間・平均再生数・時間あたり再生数）は data/stream_stats.json
+// （scripts/build_site_data.py が YouTube の配信データから集計）を期間セレクタで切り替えて出す。
+// 以前の「直近1ヶ月の配信」「配信時間」「動画本数」は shadowverse-reference.com 由来で、
+// 2026年10月中旬に取得元の更新が止まったため置き換えた。
 let matches = [];
+let streamStats = null;
 let svlabo = [];
 let tableSort = { key: "followers", dir: "desc" };
 
@@ -167,25 +165,19 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// 表で使う期間指標。期間セレクタで「通算」以外を選ぶと、その期間だけの値に切り替わる。
-// （旧ranking.htmlが持っていた「期間ごとに順位を見る」機能をこちらに移したもの。
-//   ranking.htmlは比較の表と役割が重複していたため廃止した。）
-const PERIODIC_METRICS = ["stream_duration", "video_upload_count"];
-const CUMULATIVE_PERIOD_VALUE = "__cumulative__";
-let tablePeriod = CUMULATIVE_PERIOD_VALUE;
+// 配信の列の期間。stream_stats.json の windows のキーと対応している。
+const STREAM_TABLE_PERIODS = [
+  { id: "30", label: "直近30日" },
+  { id: "90", label: "直近90日" },
+  { id: "all", label: "取得した全期間" },
+];
+let tablePeriod = "30";
 
-// 選んだ期間での値。通算なら累積系列の最後の値、期間指定ならその期間の値だけを返す。
-function periodValue(history, playerName, metric, period) {
-  if (period === CUMULATIVE_PERIOD_VALUE) {
-    const s = buildCumulativeSeries(history, playerName, metric);
-    return s.data.length ? s.data[s.data.length - 1] : null;
-  }
-  const rows = history.filter(r =>
-    r.player_name === playerName && r.metric === metric && r.period === period);
-  if (!rows.length) return null;
-  rows.sort((a, b) => (a.date < b.date ? 1 : -1));   // 同じ期間を複数日観測していたら最新の観測を使う
-  const v = parseFloat(rows[0].value);
-  return isFinite(v) ? v : null;
+// 選んだ期間の配信集計（無い選手・期間は null）
+function streamStatFor(playerName, period) {
+  const w = streamStats && streamStats.windows && streamStats.windows[period];
+  const st = w && w[playerName];
+  return st && st.count ? st : null;
 }
 
 function buildTableRows(players, history, images, matches, svlabo) {
@@ -201,12 +193,8 @@ function buildTableRows(players, history, images, matches, svlabo) {
       // 直近30日でどれだけ動いたかを別列として出す。
       followersChange: changeOverDays(history, player.player_name, "followers", 30),
       ytChange: changeOverDays(history, player.player_name, "youtube_subscribers", 30),
-      // 通算配信時間は「昔たくさん配信した人」が有利なので、直近の活動量も別に出す。
-      // 1期間(隔週)だと配信しない週があっただけで0になるため、2期間=およそ1ヶ月で見る。
-      recentStream: recentPeriodTotal(history, player.player_name, "stream_duration", 2),
       stats: summarizeMatches(matches, player.player_name),
-      streamTotal: periodValue(history, player.player_name, "stream_duration", tablePeriod),
-      videoTotal: periodValue(history, player.player_name, "video_upload_count", tablePeriod),
+      stream: streamStatFor(player.player_name, tablePeriod),
       // data/svlabo_leaderboards.csv（全ユーザー分）から選手ごとの最高順位を求める。
       // 以前はhistory.csvのcr_best_rank_overallを見ていたが、これは手動スクレイピングを
       // 実行した選手（Atomのみ）にしか値が入っておらず、他の選手が軒並み「-」になっていた。
@@ -238,15 +226,18 @@ const TABLE_COLUMNS = [
   { key: "ps", label: "戦績", defaultDir: "desc",
     sortValue: r => r.stats.points,
     render: r => r.stats.played ? `${r.stats.wins}勝${r.stats.losses}敗` : "-" },
-  { key: "recentStream", label: "直近1ヶ月の配信", defaultDir: "desc",
-    sortValue: r => r.recentStream ?? -1,
-    render: r => r.recentStream != null ? fmtNum(Math.round(r.recentStream * 10) / 10) + "h" : "-" },
-  { key: "stream", label: "配信時間", defaultDir: "desc",
-    sortValue: r => r.streamTotal ?? -1,
-    render: r => r.streamTotal != null ? fmtNum(r.streamTotal) + "h" : "-" },
-  { key: "videos", label: "動画本数", defaultDir: "desc",
-    sortValue: r => r.videoTotal ?? -1,
-    render: r => r.videoTotal != null ? fmtNum(r.videoTotal) : "-" },
+  { key: "streamCount", label: "配信回数", defaultDir: "desc",
+    sortValue: r => r.stream ? r.stream.count : -1,
+    render: r => r.stream ? `${fmtNum(r.stream.count)}回` : "-" },
+  { key: "streamHours", label: "配信時間", defaultDir: "desc",
+    sortValue: r => r.stream ? r.stream.total_sec : -1,
+    render: r => r.stream ? `${fmtNum(Math.round(r.stream.total_sec / 360) / 10)}h` : "-" },
+  { key: "streamAvgViews", label: "平均再生数", defaultDir: "desc",
+    sortValue: r => r.stream && r.stream.avg_views != null ? r.stream.avg_views : -1,
+    render: r => r.stream && r.stream.avg_views != null ? fmtNum(r.stream.avg_views) : "-" },
+  { key: "streamVph", label: "1時間あたり再生数", defaultDir: "desc",
+    sortValue: r => r.stream && r.stream.views_per_hour != null ? r.stream.views_per_hour : -1,
+    render: r => r.stream && r.stream.views_per_hour != null ? fmtNum(r.stream.views_per_hour) : "-" },
   { key: "crrank", label: "最高順位", defaultDir: "asc",
     sortValue: r => r.crRank ?? Infinity,
     render: r => r.crRank != null ? fmtNum(r.crRank) + "位" : "-" },
@@ -255,18 +246,13 @@ const TABLE_COLUMNS = [
     render: r => fmtNum(r.cr100) },
 ];
 
-// 期間セレクタの選択肢。隔週期間を新しい順に並べ、先頭に「通算」を置く。
 function periodOptionsHTML() {
-  const periods = [...new Set(history
-    .filter(r => PERIODIC_METRICS.includes(r.metric) && !CUMULATIVE_EXCLUDED_PERIODS.has(r.period))
-    .map(r => r.period))].sort((a, b) => periodSortKey(b) - periodSortKey(a));
-  return `<option value="${CUMULATIVE_PERIOD_VALUE}">通算</option>` +
-    periods.map(p => `<option value="${escapeAttr(p)}">${periodLabel(p)}</option>`).join("");
+  return STREAM_TABLE_PERIODS.map(p => `<option value="${p.id}">${p.label}</option>`).join("");
 }
 
 function renderTableMode(container) {
   function draw() {
-    // 期間を切り替えると配信時間・動画本数の値が変わるので、その都度組み直す
+    // 期間を切り替えると配信の列の値が変わるので、その都度組み直す
     const rows = buildTableRows(players, history, images, matches, svlabo);
     const col = TABLE_COLUMNS.find(c => c.key === tableSort.key);
     const sorted = rows.slice().sort((a, b) => {
@@ -291,9 +277,10 @@ function renderTableMode(container) {
     container.innerHTML = `
       <div class="control-row">
         <div class="control-group">
-          <label>期間（配信時間・動画本数）</label>
+          <label for="tablePeriodSelect">期間（配信の列）</label>
           <select id="tablePeriodSelect">${periodOptionsHTML()}</select>
         </div>
+        <div class="compare-note">配信の列は YouTube のライブアーカイブ（Twitch は含まない）の集計です。${streamStats ? `${escapeAttr(streamStats.as_of)} 時点。` : "配信の集計データを読み込めませんでした。"}1時間あたり再生数は、再生数の合計を配信時間の合計で割った値です。</div>
       </div>
       <div class="table-scroll"><table class="rank-table nowrap"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>
     `;
@@ -321,7 +308,7 @@ function renderGraphMode(container) {
   const metrics = CHART_METRICS.filter(m => availableMetrics.has(m.requires)).map(m => m.id);
 
   if (!metrics.length) {
-    container.innerHTML = `<div class="empty-note">まだ比較できるデータがありません</div>`;
+    container.innerHTML = stateHTML("empty", "まだ比較できるデータがありません");
     return;
   }
 
@@ -351,10 +338,8 @@ function renderGraphMode(container) {
   // 多すぎて見づらい場合は下の「全解除」ボタンで一旦クリアできる。
   players.forEach(p => selected.add(p.player_name));
 
-  // 初期選択の指標は「累積配信時間」にする。フォロワー数・登録者数はまだ観測点が
-  // 1つしかない選手が多く、折れ線としては見づらいため（配信時間は隔週ごとに増えていく）。
+  // 初期選択の指標は先頭の「Xフォロワー数」
   const metricSelect = document.getElementById("metricSelect");
-  if (metrics.includes("stream_duration_cumulative")) metricSelect.value = "stream_duration_cumulative";
 
   metricSelect.addEventListener("change", drawCompareChart);
   document.getElementById("selectAllBtn").addEventListener("click", () => {
@@ -394,9 +379,9 @@ async function boot() {
   const app = document.getElementById("app");
   let data;
   try {
-    [data, matches, svlabo] = await Promise.all([loadData(), loadMatches(), loadSvlaboLeaderboard()]);
+    [data, matches, svlabo, streamStats] = await Promise.all([loadData(), loadMatches(), loadSvlaboLeaderboard(), loadStreamStats()]);
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   players = data.players;

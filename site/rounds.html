@@ -22,7 +22,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -45,7 +45,7 @@ async function boot() {
   try {
     [data, matches, battleDetails] = await Promise.all([loadData(), loadMatches(), loadBattleDetails()]);
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   const { players, images } = data;
@@ -56,7 +56,7 @@ async function boot() {
   }
 
   if (!matches.length) {
-    app.innerHTML = `<div class="empty-note">まだ対戦データがありません</div>`;
+    app.innerHTML = stateHTML("empty", "まだ対戦データがありません");
     return;
   }
 
@@ -78,7 +78,7 @@ const LEADERBOARD_COLUMNS = [
 
 function renderLeaderboard(container, players, images, matches) {
   if (!matches.length) {
-    container.innerHTML = `<div class="empty-note">まだPS公式戦の試合結果がありません</div>`;
+    container.innerHTML = stateHTML("empty", "まだPS公式戦の試合結果がありません");
     return;
   }
   const all = players.map(p => ({ player: p, stats: summarizeMatches(matches, p.player_name) }));
@@ -159,7 +159,7 @@ function renderLeaderboard(container, players, images, matches) {
 function renderPlayerMatches(app, players, images, matches, battleDetails, name) {
   const player = players.find(p => p.player_name === name);
   if (!player) {
-    app.innerHTML = `<a class="back-link" href="rounds.html">通算成績に戻る</a><div class="empty-note">選手が見つかりません</div>`;
+    app.innerHTML = `<a class="back-link" href="rounds.html">通算成績に戻る</a>${stateHTML("empty", "選手が見つかりません")}`;
     return;
   }
 

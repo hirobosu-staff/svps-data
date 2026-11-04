@@ -5,8 +5,8 @@ GitHub Pagesで折れ線グラフとして公開するためのリポジトリ�
 順位表・チーム戦績・選手一覧・選手詳細・通算成績・節別結果・比較・BEYONDのページ構成（ナビは7項目、
 選手詳細は各ページの選手名リンク経由）で、単にデータを溜めるだけでなく表示まで一体になっています。
 
-svlabo.jp由来のうち、節別詳細（`battle_details.csv`）はカテゴリ巡回で毎日自動取得します。
-ランクマッチのリーダーボード（`svlabo_leaderboards.csv`）だけは手動運用のままです。
+svlabo.jp由来のデータ（節別詳細 `battle_details.csv`、ランクマッチのリーダーボード `svlabo_leaderboards.csv`）は
+どちらも毎日自動取得します（リーダーボードは2026-11-04までは手動運用でした）。
 
 ## 構成
 
@@ -17,7 +17,8 @@ svps-tracker/
 │                                          pushした時だけ動く、スクレイピングを伴わない即時デプロイ用ワークフロー
 ├── scripts/
 │   ├── common.py               共通処理（選手マスタ読み込み、CSV書き出しなど）
-│   ├── scrape_reference.py     shadowverse-reference.com から 配信関連 を取得（毎日自動。Xフォロワー数は2026-10-28に scrape_x.py へ移行）
+│   ├── scrape_reference.py     shadowverse-reference.com から 配信関連 を取得（取得元が2026年10月中旬に更新停止したため、
+│   │                             2026-11-04 に自動実行から外した。Xフォロワー数は2026-10-28に scrape_x.py へ移行済み）
 │   ├── scrape_x.py             FxTwitter API（api.fxtwitter.com、無料・認証不要）から Xフォロワー数 を取得（毎日自動）
 │   ├── scrape_streams.py       YouTube のライブアーカイブを1本ずつ取得し data/streams.json に貯める（毎日自動、APIキー不要。
 │   │                             詳細は「配信分析について」参照）
@@ -27,6 +28,8 @@ svps-tracker/
 │   ├── scrape_result.py        チーム順位（result.json）を公式サイトの試合スコアから集計（毎日自動。詳細は「チーム順位について」参照）
 │   ├── scrape_schedule.py      シーズン全体の日程（schedule.csv）を公式サイトから取得（毎日自動。詳細は「日程について」参照）
 │   ├── scrape_svlabo.py        svlabo.jp から ランクマッチ最高順位・レート を取得（★自動実行からは除外。手動で使う用に残してあるだけ）
+│   ├── scrape_svlabo_ranks.py  svlabo.jp の rankData から data/svlabo_leaderboards.csv を毎日まるごと作り直す（毎日自動。2026-11-04〜）
+│   ├── build_site_data.py      公開時に、ページが読む小さな集計済みファイルを作る（Pagesのビルド時に実行。詳細は「ページの読み込みの軽量化について」）
 │   ├── scrape_svlabo_battle_details.py  svlabo.jpの「N節 試合詳細結果＆配信時間指定URL」記事を取り込む
 │   │                             （毎日自動。カテゴリページを巡回して新しい節の記事を自動発見する。
 │   │                              未実施の記事はスキップする。詳細は「節別詳細について」参照）
@@ -41,7 +44,7 @@ svps-tracker/
 │   │                             cr_*系のみ。PS戦績はここには入らない。下記参照）
 │   ├── match_results.csv       PS公式戦の個人試合結果（1試合1行。詳細は「試合結果について」参照）
 │   ├── player_images.json      選手名→写真パスのマッピング（scrape_player_images.pyが自動生成）
-│   ├── svlabo_leaderboards.csv  svlabo.jpの全ユーザー分を一括取得した手動作業の成果物
+│   ├── svlabo_leaderboards.csv  svlabo.jpの全ユーザー分のランクマッチ上位（毎日自動更新。scrape_svlabo_ranks.py）
 │   │                             （period, class, rank, team_tag, player_name, rating の列。history.csvとは別管理・自動更新はされない。
 │   │                             compare.htmlの「BEYOND回数」列とbeyond.htmlが参照する）
 │   ├── schedule.csv            シーズン全体の日程（毎日自動更新。14節56ROUND分の日付・時刻・
@@ -112,9 +115,9 @@ svps-tracker/
      上書きされずそのまま残る）
    - `README.md`
    - `data/players.csv`
-   - `data/svlabo_leaderboards.csv`（一括取得した手動作業の成果物。日々のActionsでは更新されないため上書きしても安全）
 3. `data/history.csv` / `data/match_results.csv` / `data/player_images.json` /
-   `data/snapshots/` / `data/result.json` / `data/battle_details.csv` / `data/schedule.csv` には一切触れない・
+   `data/snapshots/` / `data/result.json` / `data/battle_details.csv` / `data/schedule.csv` /
+   `data/streams.json` / `data/svlabo_leaderboards.csv`（2026-11-04から毎日自動更新） には一切触れない・
    コピー対象に含めない
    （`battle_details.csv`は以前は手動運用でしたが、カテゴリ巡回による自動取得に変わったため
    **Actionsが日々書き込む実データ側に移りました**。古いzipの内容で上書きすると取り込み済みの節が消えます）
@@ -162,7 +165,8 @@ GitHubリポジトリのSecretsに直接登録するものなので、Claude側�
 `scrape_youtube.py` は自動的に旧来のチャンネルページスクレイピング方式にフォールバックします
 （エラーにはならず、登録者数の取得自体がスキップされることはありません）。ただしフォールバック時は
 登録者数が概ね1万人を超えるチャンネル（12チャンネル）はYouTube側の表示自体が「1.35万人」のように
-丸められるため、端数までの正確な数字は取れません。端数まで必要な場合はAPIキーの設定が必須です。
+丸められるため、端数までの正確な数字は取れません（なお API 経由でも上3桁に丸められた値しか返らないことが
+2026-11 に分かりました。「既知の制約・注意点」の YouTube登録者数の項を参照）。
 その日どちらの方式で取得されたかは `data/snapshots/youtube_*.json`（history.csv取り込み前の
 生データ）の各行の `via`（"api" または "scrape"）フィールドで確認できます。
 
@@ -174,10 +178,26 @@ Cowork（Claude）側のスケジュール機能で毎日実行することも�
 スクレイピング〜データ更新〜コミット〜Pages公開まで**すべてGitHubのインフラ内で完結する**
 GitHub Actions方式を採用しています。Claude側では初期セットアップ（このリポジトリ一式の作成）だけを行いました。
 
-## なぜランクマッチのリーダーボードだけ手動なのか
+## ランクマッチのリーダーボードの自動取得について（scrape_svlabo_ranks.py）
+
+2026-11-04 から、`svlabo_leaderboards.csv` を毎日自動で作り直しています。svlabo の
+「CRランキングまとめ」（`blog-entry-1608.html`）が読み込んでいるデータファイル
+`https://blog-imgs-NNN.fc2.com/d/u/e/duesemi/rank_YYMMDD.js`（ファイル名の日付とサーバー番号は更新のたびに変わる）を
+ページから見つけて取得し、その中の `rankData`（期間名ごとの `{cls, rank, rate, name}` の配列）を読みます。
+
+- JS は**実行せず**、テキストから `rankData = {...}` を切り出して JSON として読みます（第三者のコードを Actions で動かさないため）。
+- `cls` は 1=エルフ〜7=ネメシス、`name` は「TAG｜名前」の形で、最初の「｜」でチームタグと名前に分けます。
+- svlabo は過去の期間も後から修正するので、追記ではなく毎回まるごと作り直します。
+- 期間が10未満、または期間×クラスのどれかが80行未満なら取得失敗とみなし、既存のCSVを残します。
+- 名前に含まれるカンマは全角に置き換えます（サイト側のCSV読み込みがカンマを区切りとしか扱わないため）。
+- 取得した JS の URL・期間・行数は `data/snapshots/svlabo_ranks_{日付}.json` に残ります。
+
+以下は、手動運用にしていた当時の経緯です（`scrape_svlabo.py` は別物で、今も自動実行には入っていません）。
+
+### 手動運用にしていた当時の理由
 
 svlabo.jp由来のデータのうち、節別詳細（`battle_details.csv`）はカテゴリページを巡回して
-毎日自動取得しています。手動運用のままなのはランクマッチのリーダーボード
+毎日自動取得しています。手動運用のままだったのはランクマッチのリーダーボード
 （`svlabo_leaderboards.csv`、`scrape_svlabo.py`）だけです。こちらは当初、毎日自動取得→
 毎月1日のみ自動取得、と段階的に自動化しようとしていましたが、以下の理由で自動化対象から外しました。
 
@@ -392,7 +412,7 @@ python scrape_svlabo_battle_details.py \
 
 ## 比較の表について（compare.html の「表で比較」）
 
-全選手を12列のソート可能な一覧表にまとめたページです。旧`ranking.html`（1指標ずつ順位を出す）は
+全選手を13列のソート可能な一覧表にまとめたページです。旧`ranking.html`（1指標ずつ順位を出す）は
 このページと役割が完全に重複していたため廃止し、あちらにしか無かった機能をこちらに移しました。
 
 | 列 | 内容 |
@@ -403,8 +423,7 @@ python scrape_svlabo_battle_details.py \
 | 登録者 | YouTube登録者の現在値 |
 | 登録者30日 | 30日前との増減（実数と率） |
 | 戦績 | PS公式戦の通算勝敗 |
-| 直近1ヶ月の配信 | 直近2期間（およそ1ヶ月）の配信時間合計 |
-| 配信時間 / 動画本数 | 期間セレクタで選んだ期間の値（既定は通算） |
+| 配信回数 / 配信時間 / 平均再生数 / 1時間あたり再生数 | YouTube のライブアーカイブの集計（`stream_stats.json`）。期間セレクタで直近30日（既定）・直近90日・取得した全期間を切り替え |
 | 最高順位 / BEYOND回数 | svlabo.jpのランクマッチデータ由来 |
 
 **なぜ「直近」の列を足したか**: 現在値だけだと、もともと母数の大きい選手が常に上位に来るだけで
@@ -421,12 +440,10 @@ python scrape_svlabo_battle_details.py \
 現時点では37人全員でフォロワーの30日比が出ています（登録者はYouTubeチャンネルが無いChappyのみ「-」）。
 なお`history.csv`は2026-07-26開始なので、30日比が出せるのは2026-08-25以降です。
 
-**直近1ヶ月の配信時間**: 配信時間は隔週期間ごとの値なので「今月」という単位がデータ側にありません。
-1期間（約2週間）だけだと「たまたまその2週間配信しなかった」だけで0になり指標として不安定なため、
-直近2期間の合計（およそ1ヶ月）で見ています（`recentPeriodTotal()`）。
-
-**期間セレクタ**: 配信時間・動画本数を隔週期間ごとに切り替えて見られます。旧`ranking.html`の
-期間絞り込みを移したものです。既定は「通算」です。
+**配信の列**: 以前は shadowverse-reference.com 由来の「直近1ヶ月の配信」「配信時間」「動画本数」でしたが、
+取得元が2026年10月中旬に更新を止めたため、2026-11-04 に YouTube の配信データ（`streams.json`）からの集計に
+置き換えました。「1時間あたり再生数」は、再生数の合計を配信時間の合計で割った値で、長時間配信が多い選手と
+短い選手を公平に比べるための列です。集計日は表の上に出ています。
 
 ## 日程について（schedule.csv / トップページの「次の節」）
 
@@ -533,7 +550,9 @@ labelを`display:none`にするだけで従来のタブ表示に戻るため、*
   同じトークン列から取得し、`match_results.csv`に記録しています（詳細は
   「試合結果について」参照）。
 - **YouTube登録者数（scrape_youtube.py）**: メインはYouTube Data API（`channels.list`）による
-  取得で、`YOUTUBE_API_KEY`が設定されていれば端数まで正確な登録者数が取れます。APIキーの
+  取得です。**ただし API が返す登録者数も上3桁に丸められています**（2026-10-29 にキーを設定した後も、
+  ぱらちゃんは 45,600 のまま。YouTube 側の仕様で、1,000人を超えるチャンネルは上3桁に丸めた値しか公開されない）。
+  当初は「キーを設定すれば端数まで取れる」と考えていましたが、これは誤りでした。APIキーの
   取得方法は上記「YouTube Data APIキーの取得方法」を参照してください。
   キーが未設定の場合、またはAPI呼び出し自体が失敗した場合（キー無効・クォータ超過など）は、
   自動的にチャンネルページ（/about）のHTMLをスクレイピングする旧方式にフォールバックします。
@@ -628,6 +647,37 @@ labelを`display:none`にするだけで従来のタブ表示に戻るため、*
 `computeTeamStandings()`が自動的に`data/match_results.csv`（選手個人の試合結果の集計）から
 順位を計算するフォールバックに切り替わります。ただしこちらは個人戦の合計ポイントだけを見ており、
 公式の得失差ボーナスなどは反映されないため、正式な順位としてはresult.jsonの自動取得を優先します。
+
+## ページの読み込みの軽量化について（build_site_data.py）
+
+2026-11-04 まで、全ページが `data/history.csv`（約8.7MB）を毎回読み込んでいました。中身の大半は、
+更新が止まった shadowverse-reference.com の期間集計を毎日記録し直した行で、画面ではもう使っていません。
+選手詳細の配信分析も、全選手分の `streams.json`（約1.8MB）を読んでから1人分に絞っていました。
+
+そこで、GitHub Pages のビルド時（`daily-update.yml` と `deploy-pages.yml` の「Build Pages output」）に
+`python3 scripts/build_site_data.py _site/data` を実行し、ページが読む小さなファイルを作るようにしました。
+これらは公開用の出力先にだけ置き、リポジトリには入れません（毎日の差分を増やさないため）。
+
+| ファイル | 中身 | 使うページ |
+|---|---|---|
+| `timeseries.json` | 選手ごとの Xフォロワー数・YouTube登録者数の日次推移（約150KB） | 全ページ（`common.js` の `loadData()`） |
+| `stream_stats.json` | 選手ごとの配信集計（直近30日・直近90日・取得した全期間） | 比較 |
+| `streams/{チャンネルID}.json` | 選手1人分の配信一覧 | 選手詳細の配信分析 |
+
+これで1ページあたりの読み込みは、約9MBから150〜250KB程度になりました。比較と BEYOND は、ランクマッチの
+CSV（約0.6MB）を読むため1.3MB程度です。`build_site_data.py` は標準ライブラリだけで動きます。
+
+`timeseries.json` や `streams/*.json` が無いとき（`site/` を手元で直接開いた場合など）は、ページ側が
+`history.csv` / `streams.json` を読む形に自動で戻ります。`loadData()` が返す `history` の行の形は、
+history.csv と同じ `{date, player_name, metric, period, value}` です。
+
+## 空・読み込み中・エラーの表示について
+
+全ページで、`common.js` の `stateHTML(kind, title, detail)` を使って表示を揃えています。
+`kind` は `"loading"`（読み込み中、回転する印つき）、`"empty"`（データが無い・該当なし。点線の枠）、
+`"error"`（読み込み失敗。赤い枠）の3種類です。ページ全体のデータ読み込みに失敗したときは
+`loadErrorHTML(err)` で「データを読み込めませんでした」と再読み込みの案内を出します。
+以前の `empty-note` / `error-banner` は使っていません（CSS は残してある）。
 
 ## 配信分析について（scrape_streams.py / data/streams.json / stream-analysis.js）
 

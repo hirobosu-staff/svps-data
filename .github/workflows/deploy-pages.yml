@@ -50,6 +50,9 @@ jobs:
           cp -f data/schedule.csv _site/data/schedule.csv 2>/dev/null || true
           cp -f data/svlabo_leaderboards.csv _site/data/svlabo_leaderboards.csv 2>/dev/null || true
           cp -f data/streams.json _site/data/streams.json 2>/dev/null || true
+          # ページが読む集計済みの小さなファイル（timeseries.json / stream_stats.json / streams/*.json）を作る。
+          # 全ページが8MBの history.csv を読まずに済むようにするため（scripts/build_site_data.py 参照）
+          python3 scripts/build_site_data.py _site/data
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

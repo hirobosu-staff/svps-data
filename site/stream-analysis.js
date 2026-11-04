@@ -23,15 +23,33 @@ const STREAM_KEYWORDS = [
   ["雑談", /雑談/], ["朝", /朝活|朝/], ["深夜", /深夜/],
 ];
 
-async function loadStreams() {
+// 選手1人分の配信を読む。公開時は scripts/build_site_data.py が作る data/streams/{チャンネルID}.json
+// （1人分だけ、数十KB）を読み、無ければ全選手分の data/streams.json（約1.8MB）から絞り込む。
+async function loadStreams(player) {
+  const m = String(player && player.youtube_url || "").match(/\/channel\/([A-Za-z0-9_-]+)/);
+  if (!m) return [];
+  try {
+    const resp = await fetch(`data/streams/${m[1]}.json`);
+    if (resp.ok) {
+      const data = await resp.json();
+      return (data.streams || []).filter(s => s.start_at).map(s => ({ ...s, player_name: player.player_name }));
+    }
+  } catch (e) { /* 下の streams.json にフォールバックする */ }
   try {
     const resp = await fetch(STREAMS_URL);
     if (!resp.ok) return [];
     const data = await resp.json();
-    return (data.streams || []).filter(s => s.status === "ok" && s.start_at);
+    return (data.streams || []).filter(s => s.status === "ok" && s.start_at && s.channel_id === m[1]);
   } catch (e) {
     return [];
   }
+}
+
+// 直近 days 日の配信時間の合計（秒）。選手ページ上部の「直近90日の配信時間」に使う。
+function recentStreamSeconds(streams, days) {
+  const since = Date.now() - days * 86400 * 1000;
+  return streams.filter(s => new Date(s.start_at).getTime() >= since)
+    .reduce((sum, s) => sum + (s.duration_sec || 0), 0);
 }
 
 // 日本時間に直した Date（getUTC* で日本時間の年月日・時刻・曜日が取れる）
@@ -114,7 +132,7 @@ function streamKeywordsHTML(list) {
     const v = avg(hit.map(s => s.view_count).filter(x => x != null));
     return { label, count: hit.length, avgViews: v };
   }).filter(r => r.count >= 2).sort((a, b) => b.count - a.count);
-  if (!rows.length) return `<div class="empty-note">2回以上出てくるキーワードがありません</div>`;
+  if (!rows.length) return stateHTML("empty", "2回以上出てくるキーワードがありません");
   return `<table class="rank-table stream-kw">
     <thead><tr><th>キーワード</th><th class="num">配信回数</th><th class="num">平均再生数</th><th class="num">全体平均との差</th></tr></thead>
     <tbody>${rows.map(r => {
@@ -207,11 +225,11 @@ function drawStreamCharts(list, color) {
 function renderStreamAnalysis(container, player, allStreams, color) {
   const mine = allStreams.filter(s => s.player_name === player.player_name);
   if (!player.youtube_url) {
-    container.innerHTML = `<h2 class="stream-title">配信分析</h2><div class="empty-note">YouTube チャンネルが登録されていないため、配信分析はありません</div>`;
+    container.innerHTML = `<h2 class="stream-title">配信分析</h2>${stateHTML("empty", "YouTube チャンネルが登録されていないため、配信分析はありません")}`;
     return;
   }
   if (!mine.length) {
-    container.innerHTML = `<h2 class="stream-title">配信分析</h2><div class="empty-note">配信のデータはまだありません</div>`;
+    container.innerHTML = `<h2 class="stream-title">配信分析</h2>${stateHTML("empty", "配信のデータはまだありません")}`;
     return;
   }
   const oldest = mine.reduce((a, s) => s.start_at < a ? s.start_at : a, mine[0].start_at);
@@ -233,7 +251,7 @@ function renderStreamAnalysis(container, player, allStreams, color) {
     const body = container.querySelector("#streamBody");
     if (!list.length) {
       streamCharts.forEach(c => c.destroy()); streamCharts = [];
-      body.innerHTML = `<div class="empty-note">この期間の配信はありません</div>`;
+      body.innerHTML = stateHTML("empty", "この期間の配信はありません", "期間を広げてみてください");
       return;
     }
     body.innerHTML = `

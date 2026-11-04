@@ -4,8 +4,9 @@
 
 1. YouTube Data API v3（channels.list, part=statistics）… メイン方式。
    環境変数 YOUTUBE_API_KEY が設定されていればこちらを使う。
-   登録者数が1万人を超えるチャンネルでも端数まで正確な整数が返る
-   （チャンネル側が明示的に非表示設定にしていない限り）。
+   ※当初は「1万人を超えるチャンネルでも端数まで正確な整数が返る」と書いていたが誤りで、
+     API が返す値も上3桁に丸められている（2026-10-29 にキー設定後、45,600 のような値のまま）。
+     YouTube 側の仕様なので、どちらの方式でも端数は取れない。
    取得手順・GitHub Secretsへの登録方法はREADMEの「YouTube Data APIキーの取得方法」を参照。
    （このキーはClaude側では一切扱わない。あなた自身がGoogle Cloud Consoleで発行し、
    GitHubリポジトリのSecretsに直接登録する）

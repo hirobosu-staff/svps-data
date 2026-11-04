@@ -9,6 +9,10 @@ const BATTLE_DETAILS_URL = "data/battle_details.csv";
 const RESULT_JSON_URL = "data/result.json";
 const SVLABO_URL = "data/svlabo_leaderboards.csv";
 const SCHEDULE_URL = "data/schedule.csv";
+// 公開時（GitHub Pages のビルド時）に scripts/build_site_data.py が作る集計済みファイル。
+// history.csv（約8MB）や streams.json（約1.8MB）を毎回読まずに済むようにするためのもの。
+const TIMESERIES_URL = "data/timeseries.json";
+const STREAM_STATS_URL = "data/stream_stats.json";
 // CR(ランクマッチ)順位の「TOP N入り回数」ランキングで選べるしきい値の候補
 const CR_TOPN_THRESHOLDS = [10, 30, 50, 100];
 
@@ -120,10 +124,16 @@ function parseCSV(text) {
 // history.csv / players.csv / player_images.json をまとめて読み込む。
 // 画像マニフェストが無い（scrape_player_images.pyをまだ一度も実行していない）場合も
 // 致命的エラーにはせず、空のマッピングとして扱う。
+//
+// history には、画面で使う Xフォロワー数・YouTube登録者数の日次の値だけが入る（data/timeseries.json）。
+// 以前は history.csv をそのまま読んでいたが、大半が使っていない旧データ（shadowverse-reference.com の
+// 期間集計を毎日記録し直した行）で、8MB近くあったため差し替えた。行の形は history.csv と同じ
+// {date, player_name, metric, period, value} にしてあるので、latestValue() などはそのまま使える。
+// timeseries.json が無い場合（手元で site/ を直接開いたときなど）は history.csv を読む。
 async function loadData() {
-  const [histText, playersText] = await Promise.all([
-    fetch(DATA_URL).then(r => r.ok ? r.text() : Promise.reject(new Error(`history.csv fetch failed: ${r.status}`))),
+  const [playersText, history] = await Promise.all([
     fetch(PLAYERS_URL).then(r => r.ok ? r.text() : Promise.reject(new Error(`players.csv fetch failed: ${r.status}`))),
+    loadHistoryRows(),
   ]);
   let images = {};
   try {
@@ -132,10 +142,62 @@ async function loadData() {
   } catch (e) { /* 画像マニフェストが無くても致命的ではない */ }
 
   return {
-    history: parseCSV(histText),
+    history,
     players: parseCSV(playersText),
     images,
   };
+}
+
+async function loadHistoryRows() {
+  try {
+    const resp = await fetch(TIMESERIES_URL);
+    if (resp.ok) {
+      const ts = await resp.json();
+      const rows = [];
+      Object.entries(ts.players || {}).forEach(([name, metrics]) => {
+        Object.entries(metrics).forEach(([metric, points]) => {
+          points.forEach(([date, value]) => rows.push({ date, player_name: name, metric, period: "current", value: String(value) }));
+        });
+      });
+      return rows;
+    }
+  } catch (e) { /* 下の history.csv にフォールバックする */ }
+  const resp = await fetch(DATA_URL);
+  if (!resp.ok) throw new Error(`history.csv fetch failed: ${resp.status}`);
+  return parseCSV(await resp.text());
+}
+
+// data/stream_stats.json（選手ごとの配信集計。直近30日・直近90日・取得した全期間）を読む。
+// 無ければ null を返す（比較ページの配信列が「-」になるだけ）。
+async function loadStreamStats() {
+  try {
+    const resp = await fetch(STREAM_STATS_URL);
+    return resp.ok ? await resp.json() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// --- 空・読み込み中・エラーの表示（全ページ共通） ---
+// 以前はページごとに「empty-note」「error-banner」の文言と形がばらばらだったので、ここに揃えた。
+//   stateHTML("empty", "該当する選手がいません", "検索語を変えてみてください")
+//   stateHTML("error", "データを読み込めませんでした", err.message)
+//   stateHTML("loading")
+function stateHTML(kind, title, detail) {
+  if (kind === "loading") {
+    return `<div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>${escapeAttr(title || "読み込み中")}</span></div>`;
+  }
+  const role = kind === "error" ? ` role="alert"` : "";
+  return `<div class="state state--${kind === "error" ? "error" : "empty"}"${role}>
+    <div class="state__title">${escapeAttr(title || (kind === "error" ? "データを読み込めませんでした" : "データがありません"))}</div>
+    ${detail ? `<div class="state__detail">${escapeAttr(detail)}</div>` : ""}
+  </div>`;
+}
+
+// データ読み込みに失敗したときのページ全体の表示
+function loadErrorHTML(err) {
+  return stateHTML("error", "データを読み込めませんでした",
+    `時間をおいて再読み込みしてください。（${err && err.message ? err.message : err}）`);
 }
 
 // "regular_season"（レギュラーシーズン通算）や"current"（現在値）は、月ごと/隔週ごとの

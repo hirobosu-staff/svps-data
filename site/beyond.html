@@ -22,7 +22,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -144,7 +144,7 @@ function renderSearchResults(container) {
     <table class="rank-table">
       <thead><tr><th>期間</th><th>クラス</th><th>順位</th><th>チーム</th><th>選手</th><th>レート</th></tr></thead>
       <tbody>${body}</tbody>
-    </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+    </table>` : stateHTML("empty", "該当する選手がいません", "検索語や絞り込みを変えてみてください");
 }
 
 function renderRatingTab(container, svlaboPeriods, classes) {
@@ -223,7 +223,7 @@ function renderRatingTab(container, svlaboPeriods, classes) {
       <table class="rank-table">
         <thead><tr><th>順位</th><th>チーム</th><th>選手</th>${isAllClasses ? "<th>クラス</th>" : ""}<th>レート</th></tr></thead>
         <tbody>${body}</tbody>
-      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+      </table>` : stateHTML("empty", "該当する選手がいません", "検索語や絞り込みを変えてみてください");
   }
 
   [periodSelect, classSelect].forEach(el => el.addEventListener("change", draw));
@@ -274,7 +274,7 @@ function renderCrCountTab(container) {
       <table class="rank-table">
         <thead><tr><th>順位</th><th>チーム</th><th>選手</th><th>${crTopNLabel(filters.threshold)}</th></tr></thead>
         <tbody>${body}</tbody>
-      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+      </table>` : stateHTML("empty", "該当する選手がいません", "検索語や絞り込みを変えてみてください");
   }
 
   thresholdSelect.addEventListener("change", draw);
@@ -384,7 +384,7 @@ function renderBeyondCountTab(container, svlaboPeriods) {
       <table class="rank-table beyond-count-table">
         <thead><tr><th>順位</th><th>チーム</th><th>選手</th>${showPeriod ? "<th>期間</th>" : ""}<th>BEYOND数</th><th>クラス別の順位</th><th>平均順位</th><th>平均レート</th></tr></thead>
         <tbody>${body}</tbody>
-      </table>` : `<div class="empty-note">該当する選手がいません</div>`;
+      </table>` : stateHTML("empty", "該当する選手がいません", "検索語や絞り込みを変えてみてください");
   }
 
   // 全ビヨンド経験者（期間の絞り込みとは関係なく全期間で集計する）
@@ -410,7 +410,7 @@ function renderBeyondCountTab(container, svlaboPeriods) {
           <td class="beyond-full-periods">${g.list.map(e => `<span>${escapeAttr(e.period)}（${e.avgRank.toFixed(1)}位）</span>`).join("")}</td>
         </tr>`).join("")}
       </tbody>
-    </table>` : `<div class="empty-note">まだ達成者がいません</div>`;
+    </table>` : stateHTML("empty", "まだ達成者がいません");
 
   periodSelect.addEventListener("change", draw);
   querySelect.addEventListener("input", draw);
@@ -445,11 +445,11 @@ async function boot() {
   try {
     [data, svlabo] = await Promise.all([loadData(), loadSvlaboLeaderboard()]);
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   if (!svlabo.length) {
-    app.innerHTML = `<div class="empty-note">まだランクマッチのデータがありません</div>`;
+    app.innerHTML = stateHTML("empty", "まだランクマッチのデータがありません");
     return;
   }
   playerLookup = buildPlayerLookup(data.players);

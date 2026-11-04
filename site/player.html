@@ -23,7 +23,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -32,23 +32,13 @@
 let chart = null;
 
 function drawChart(history, name, metric, color) {
-  let labels, data;
-  if (metric === "stream_duration_cumulative") {
-    // 隔週の生値をそのまま繋いでも意味がないので、時系列に積み上げた累積値を表示する
-    ({ labels, data } = buildCumulativeSeries(history, name, "stream_duration"));
-    // periodは"jul_early_2026"のような内部キー（英語）なので、グラフの軸に出す前に
-    // 日本語ラベルに変換する（並び順はここまでの時点で既に時系列順になっているので、
-    // 変換してもソート順は崩れない）。
-    labels = labels.map(periodLabel);
-  } else {
-    const rows = history.filter(r => r.player_name === name && r.metric === metric).slice().sort((a, b) => a.date < b.date ? -1 : 1);
-    labels = rows.map(r => r.date);
-    data = rows.map(r => parseFloat(r.value));
-  }
+  const rows = history.filter(r => r.player_name === name && r.metric === metric).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  const labels = rows.map(r => r.date);
+  const data = rows.map(r => parseFloat(r.value));
 
   if (chart) chart.destroy();
   if (typeof Chart === "undefined") {
-    document.querySelector(".chart-box").innerHTML = `<div class="empty-note">グラフライブラリの読み込みに失敗しました</div>`;
+    document.querySelector(".chart-box").innerHTML = stateHTML("error", "グラフを表示できませんでした", "グラフの部品を読み込めませんでした。時間をおいて再読み込みしてください");
     return;
   }
   chart = new Chart(document.getElementById("chart"), {
@@ -79,28 +69,28 @@ async function boot() {
 
   let data, streams;
   try {
-    [data, streams] = await Promise.all([loadData(), loadStreams()]);
+    data = await loadData();
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   const { players, history, images } = data;
 
   const player = players.find(p => p.player_name === name);
   if (!player) {
-    app.innerHTML = `<a class="back-link" href="players.html">選手一覧に戻る</a><div class="empty-note">選手が見つかりません</div>`;
+    app.innerHTML = `<a class="back-link" href="players.html">選手一覧に戻る</a>${stateHTML("empty", "選手が見つかりません", "選手一覧から選び直してください")}`;
     return;
   }
+  // 配信は選手が決まってから、その1人分だけを読む（全員分の streams.json は読まない）
+  streams = await loadStreams(player);
 
-  // 折れ線グラフとして意味のある指標だけに絞る（Xフォロワー数・YouTube登録者数・累積配信時間）。
-  // 配信時間は隔週ごとの生値をそのまま折れ線にしても「バラバラな値を繋いだだけ」で意味を
-  // 持たないため、時系列に積み上げた「累積配信時間」として表示する（stream_duration_cumulative、
-  // 実データはstream_durationを使うがdrawChart()側で累積計算する）。
+  // 折れ線グラフとして意味のある指標だけに絞る（Xフォロワー数・YouTube登録者数）。
+  // 以前は shadowverse-reference.com 由来の「累積配信時間」もあったが、2026年10月中旬で取得元の
+  // 更新が止まったため外した。配信の数字はページ下部の配信分析（YouTube から毎日取得）で見る。
   // ランクマッチ最高順位やPS戦績のような「推移として見せる価値が薄い/別タブで扱う」指標は含めない。
   const CHART_METRICS = [
     { id: "followers", requires: "followers" },
     { id: "youtube_subscribers", requires: "youtube_subscribers" },
-    { id: "stream_duration_cumulative", requires: "stream_duration" },
   ];
   const rows = history.filter(r => r.player_name === name);
   const availableMetrics = new Set(rows.map(r => r.metric));
@@ -108,8 +98,7 @@ async function boot() {
 
   const followers = latestValue(history, name, "followers");
   const yt = latestValue(history, name, "youtube_subscribers");
-  const streamSeries = buildCumulativeSeries(history, name, "stream_duration");
-  const streamTotal = streamSeries.data.length ? streamSeries.data[streamSeries.data.length - 1] : null;
+  const recentStreamSec = streams.length ? recentStreamSeconds(streams, 90) : null;
   const color = TEAM_COLORS[player.team_tag] || "#888";
 
   app.innerHTML = `
@@ -134,9 +123,9 @@ async function boot() {
         ${player.youtube_url ? `<a href="${player.youtube_url}" target="_blank" rel="noopener" style="font-size:12px;">YouTube</a>` : ""}
       </div>
       <div class="quick-stat">
-        <div class="label">累積配信時間</div>
-        <div class="value">${streamTotal != null ? fmtNum(streamTotal) + "h" : "-"}</div>
-        <a href="compare.html" style="font-size:12px;">比較で見る</a>
+        <div class="label">直近90日の配信時間</div>
+        <div class="value">${recentStreamSec != null ? fmtNum(Math.round(recentStreamSec / 360) / 10) + "h" : "-"}</div>
+        <a href="#streamAnalysis" style="font-size:12px;">配信分析を見る</a>
       </div>
       <div class="quick-stat">
         <div class="label">PS公式戦</div>
@@ -158,7 +147,7 @@ async function boot() {
         <a href="compare.html" style="font-size:13px;">比較する</a>
       </div>
       <div class="chart-box"><canvas id="chart"></canvas></div>
-    ` : `<div class="empty-note">この選手のデータはまだありません</div>`}
+    ` : stateHTML("empty", "この選手の推移データはまだありません")}
     <section class="stream-analysis" id="streamAnalysis"></section>
   `;
 

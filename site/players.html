@@ -22,7 +22,7 @@
     </nav>
 </header>
 <main id="app">
-  <div class="empty-note">読み込み中...</div>
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
 </main>
 
 <script src="common.js"></script>
@@ -77,7 +77,7 @@ function renderList() {
   count.textContent = `${hit.length}人`;
 
   if (!hit.length) {
-    wrap.innerHTML = `<div class="empty-note">該当する選手がいません</div>`;
+    wrap.innerHTML = stateHTML("empty", "該当する選手がいません", "検索語や絞り込みを変えてみてください");
     return;
   }
 
@@ -137,7 +137,7 @@ async function boot() {
   try {
     data = await loadData();
   } catch (err) {
-    app.innerHTML = `<div class="error-banner">データ読み込みエラー: ${err.message}</div>`;
+    app.innerHTML = loadErrorHTML(err);
     return;
   }
   ({ players, history, images } = data);

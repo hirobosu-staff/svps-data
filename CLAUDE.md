@@ -105,7 +105,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 ```
  [取得元]                          [スクリプト]                        [データ]                [表示]
 
- shadowverse-reference.com  ──→  scrape_reference.py        ─┐  （配信関連のみ。10月中旬から更新停止中）
+ shadowverse-reference.com  ──→  scrape_reference.py        ─┐  （取得元が10月中旬に更新停止。2026-11-04に自動実行から外した）
  （非公式ファンサイト）                                        │
  FxTwitter API (無料・非公式) ──→  scrape_x.py              ─┤  （Xフォロワー数。2026-10-28〜）
  YouTube (API or スクレイプ) ──→  scrape_youtube.py          ─┼→ snapshots/*.json
@@ -118,7 +118,10 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
                             ──→  scrape_player_images.py    ─────→ data/schedule.csv   ─┼→ site/*.html
                                                             └────→ data/match_results.csv│   (common.js)
  svlabo.jp                  ──→  scrape_svlabo_battle_details.py ─→ data/battle_details.csv
- （非公式・FC2ブログ）        ──→  scrape_svlabo.py（手動のみ）  ─→ data/svlabo_leaderboards.csv
+ （非公式・FC2ブログ）        ──→  scrape_svlabo_ranks.py      ─→ data/svlabo_leaderboards.csv（2026-11-04〜毎日自動）
+
+ 公開時（Pages のビルド）: build_site_data.py が timeseries.json / stream_stats.json / streams/*.json を _site/data に作る
+ （リポジトリには入れない。全ページが8MBの history.csv を読まずに済むようにするため）
 ```
 
 ### データファイルの責務
@@ -131,7 +134,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `data/battle_details.csv` | svlabo由来の節別対戦詳細（使用クラス等） | 自動 |
 | `data/result.json` | チーム順位（公式のスコアから集計） | 自動 |
 | `data/schedule.csv` | シーズン日程 56行 / 14節 | 自動 |
-| `data/svlabo_leaderboards.csv` | ランクマッチCRランキング | **手動のみ** |
+| `data/svlabo_leaderboards.csv` | ランクマッチCRランキング（svlabo の rankData から毎日まるごと作り直し） | 自動 |
 | `data/streams.json` | YouTube ライブアーカイブ1本ごと（タイトル・開始/終了・配信時間・再生数）。1配信1行のJSON | 自動 |
 
 ### ページ構成（`site/`）
@@ -147,7 +150,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `compare.html` | 比較表。`<body class="wide">` で横幅 1560px |
 | `beyond.html` | BEYOND（CRランキング関連）。タブは「レート」「TOP N入り回数」「BEYOND数」。BEYOND数は同数なら**平均順位**順（前半戦と後半戦でボーダーの高さが違うため平均レートは使わない） |
 | `ranking.html` | **廃止済み**。compare.html へのリダイレクトスタブ |
-| `common.js` | データ読み込み・集計・順位付けの共通処理。**まずここを読む** |
+| `common.js` | データ読み込み・集計・順位付けの共通処理。**まずここを読む**。`loadData()` は `timeseries.json` を読む（無ければ history.csv）。空・読み込み中・エラーの表示は `stateHTML()` / `loadErrorHTML()` に統一 |
 | `style.css` | 全ページ共通。末尾に `@media (max-width: 768px)` が1ブロックだけある |
 
 ---
@@ -228,8 +231,9 @@ def battle_is_played(b):
 ## 6. データ補正の運用ルール
 
 `history.csv` の数値は外部サイトの表示値をそのまま取っているため、たまに連続性から外れる値が入る。
-特に **YouTube 登録者数は API キー未設定でスクレイプにフォールバックしており、表示が3桁に丸められる**
-（1.35万人など）ため、丸め由来の揺れと本当の異常の区別が必要。
+特に **YouTube 登録者数は上3桁に丸められている**（1.35万人など）ため、丸め由来の揺れと本当の異常の区別が必要。
+2026-10-29 に API キーを設定したが、YouTube Data API が返す値も上3桁に丸められている（YouTube 側の仕様）ので、
+この問題はキーでは解消しない。
 
 > ユーザー談: 「APIはめんどいからやらない。今までので十分できている」
 
@@ -324,3 +328,5 @@ def battle_is_played(b):
 | 順位の計算根拠 | チーム順位について（result.json） |
 | history.csv の列定義 | history.csv のスキーマ |
 | 配信分析の取得方法・対象外 | 配信分析について（scrape_streams.py / data/streams.json / stream-analysis.js） |
+| ページが読む集計ファイル | ページの読み込みの軽量化について（build_site_data.py） |
+| ランクマッチの自動取得 | ランクマッチのリーダーボードの自動取得について（scrape_svlabo_ranks.py） |
