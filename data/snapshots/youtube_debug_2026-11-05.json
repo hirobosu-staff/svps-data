@@ -1,0 +1,412 @@
+[
+  {
+    "status_code": 200,
+    "batch_size": 36,
+    "response": {
+      "kind": "youtube#channelListResponse",
+      "etag": "u4kW5o7z47sVUbEj2pz06Pge4-w",
+      "pageInfo": {
+        "totalResults": 36,
+        "resultsPerPage": 5
+      },
+      "items": [
+        {
+          "kind": "youtube#channel",
+          "etag": "5pzTBZl6Y0HsNE8Cg5KHqWZv6po",
+          "id": "UCkH-jbZ4qKihRnR2wTQdBzA",
+          "statistics": {
+            "viewCount": "56119",
+            "subscriberCount": "1200",
+            "hiddenSubscriberCount": false,
+            "videoCount": "18"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "O--83LRKQ0PjWikWbLspvbeztFw",
+          "id": "UC8aJ2OQzeSRnOo5SkX5raww",
+          "statistics": {
+            "viewCount": "15612976",
+            "subscriberCount": "42500",
+            "hiddenSubscriberCount": false,
+            "videoCount": "1169"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "Ck3QPmukIH0ORW0nJd7d1APdQPM",
+          "id": "UCw6cXPqVtF5KVP4qEVFWNqw",
+          "statistics": {
+            "viewCount": "22276",
+            "subscriberCount": "333",
+            "hiddenSubscriberCount": false,
+            "videoCount": "47"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "iAOow70tL7mfzPtKsJd3PX1jdbc",
+          "id": "UCfhO-58gNi8knhWDDpiPExQ",
+          "statistics": {
+            "viewCount": "5168427",
+            "subscriberCount": "21600",
+            "hiddenSubscriberCount": false,
+            "videoCount": "767"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "4uHIVZiQZxDq54-ql3OxKF_KdvY",
+          "id": "UCFAzE7pPAI-XH_SAJaQRHXQ",
+          "statistics": {
+            "viewCount": "243373",
+            "subscriberCount": "1220",
+            "hiddenSubscriberCount": false,
+            "videoCount": "110"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "FoNq4mt92djtRcT4xFRMGvGafgM",
+          "id": "UCkeECSuB4aRbUyQrgR2SJOQ",
+          "statistics": {
+            "viewCount": "35914771",
+            "subscriberCount": "62300",
+            "hiddenSubscriberCount": false,
+            "videoCount": "1033"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "opEpKJq9sOWuqYvxbTFxSbX_534",
+          "id": "UCxKfMgI2EqpdAnv9f0qeCGw",
+          "statistics": {
+            "viewCount": "96343",
+            "subscriberCount": "594",
+            "hiddenSubscriberCount": false,
+            "videoCount": "52"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "s98QeDsBLxeySyfMtH0Io6VpM24",
+          "id": "UCNnIhUQILBeaABXyzVQMq_w",
+          "statistics": {
+            "viewCount": "99548",
+            "subscriberCount": "1380",
+            "hiddenSubscriberCount": false,
+            "videoCount": "49"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "bI8jFRME7cg5PtDi9q3XtwVaXKg",
+          "id": "UCxCJ2Y63m5TocjfMfssW6hQ",
+          "statistics": {
+            "viewCount": "250166",
+            "subscriberCount": "1940",
+            "hiddenSubscriberCount": false,
+            "videoCount": "78"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "zIgrVrpJuI_RhHuknymQgO4a93w",
+          "id": "UCnze1ilsnLJ0Cr2SbrDBbLQ",
+          "statistics": {
+            "viewCount": "144080",
+            "subscriberCount": "1940",
+            "hiddenSubscriberCount": false,
+            "videoCount": "76"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "bqlFYdPmxbSTDOhp1TcwEIdYwfU",
+          "id": "UC1x-evZEAl7JvN9KQcEVszQ",
+          "statistics": {
+            "viewCount": "2561857",
+            "subscriberCount": "6210",
+            "hiddenSubscriberCount": false,
+            "videoCount": "621"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "3R2PnpfHOE4gZs1t_GXVPHc8Ubs",
+          "id": "UCSrjfKnHpvKvRa8Ag8ZE2kg",
+          "statistics": {
+            "viewCount": "4397571",
+            "subscriberCount": "14700",
+            "hiddenSubscriberCount": false,
+            "videoCount": "332"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "rmeuuvAm2pab0n4Xd9KMvBepfnQ",
+          "id": "UCAyMYhtjG1N6St0Rd1JQNEg",
+          "statistics": {
+            "viewCount": "337",
+            "subscriberCount": "39",
+            "hiddenSubscriberCount": false,
+            "videoCount": "1"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "v9xQqAUZK-SCmqmnwuqxByjxcjM",
+          "id": "UC8yvw5d2_e--XXt8uw0aMTg",
+          "statistics": {
+            "viewCount": "1353908",
+            "subscriberCount": "8230",
+            "hiddenSubscriberCount": false,
+            "videoCount": "206"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "oFI9jx4hE3hpQDCXGtimrNjTzJ0",
+          "id": "UCfB9mac5TQ4UEspzgndr3YQ",
+          "statistics": {
+            "viewCount": "3258977",
+            "subscriberCount": "13900",
+            "hiddenSubscriberCount": false,
+            "videoCount": "319"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "gqqx_LXOtC5AGj62E5IpHTxKPWs",
+          "id": "UCC-u7FODflHgAenzk7ftC8A",
+          "statistics": {
+            "viewCount": "972790",
+            "subscriberCount": "5130",
+            "hiddenSubscriberCount": false,
+            "videoCount": "275"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "3tmubGahtU_NLASH0O7j8dQcpeo",
+          "id": "UCjMbIQijgVOSJVGnSZ85GjA",
+          "statistics": {
+            "viewCount": "308529",
+            "subscriberCount": "1990",
+            "hiddenSubscriberCount": false,
+            "videoCount": "74"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "HdmQ8m36Tsq600W6XdNU0_iC_uM",
+          "id": "UCgCe46jkHHRGqfXuvKNSG6w",
+          "statistics": {
+            "viewCount": "310676",
+            "subscriberCount": "2080",
+            "hiddenSubscriberCount": false,
+            "videoCount": "80"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "wciax3lAh8sM5Lj51vmQELQLrmM",
+          "id": "UCKuo_YWFppkn7qJvbQ9aAPw",
+          "statistics": {
+            "viewCount": "153968",
+            "subscriberCount": "1740",
+            "hiddenSubscriberCount": false,
+            "videoCount": "88"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "wBU96F3hEg7OYLZ0ffTAAKZm7Uw",
+          "id": "UCiO4oBF-a113Cpx7QKNxEVA",
+          "statistics": {
+            "viewCount": "3023",
+            "subscriberCount": "457",
+            "hiddenSubscriberCount": false,
+            "videoCount": "2"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "9XPQcEVicNwyTdPnrScbTrdvro8",
+          "id": "UCxk0Skt24VgMwNfUSV-MWGQ",
+          "statistics": {
+            "viewCount": "3180346",
+            "subscriberCount": "13700",
+            "hiddenSubscriberCount": false,
+            "videoCount": "304"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "BSMW5iAM7x2g9Ax-yOAa50lamOo",
+          "id": "UCIz9HwniE6VR7mn5fmoHAtA",
+          "statistics": {
+            "viewCount": "65378",
+            "subscriberCount": "762",
+            "hiddenSubscriberCount": false,
+            "videoCount": "53"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "d2uA7oz5n2hWOuXNgMxzJfj3UbY",
+          "id": "UC73JyJohVu2zxW-9FNFrSYg",
+          "statistics": {
+            "viewCount": "457922",
+            "subscriberCount": "2110",
+            "hiddenSubscriberCount": false,
+            "videoCount": "180"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "4_Kz3byD-lKlCyLVq0XVp87Tk3E",
+          "id": "UCol2eVIwurM8IKxykIaoYiQ",
+          "statistics": {
+            "viewCount": "21006804",
+            "subscriberCount": "35500",
+            "hiddenSubscriberCount": false,
+            "videoCount": "1246"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "sOgufD_hS1p39ontj0KQ3pFzn_8",
+          "id": "UClEI-7-cyMgZ5tAk8gyq1SQ",
+          "statistics": {
+            "viewCount": "13603364",
+            "subscriberCount": "36800",
+            "hiddenSubscriberCount": false,
+            "videoCount": "783"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "s06RF0CJ0scpXgrB4X8IAwkPOLo",
+          "id": "UCCmVghrVDgZG0DI0Q7NDwhQ",
+          "statistics": {
+            "viewCount": "853096",
+            "subscriberCount": "6680",
+            "hiddenSubscriberCount": false,
+            "videoCount": "181"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "8SdZT4A6uqbwsdiRpcymzgMBst8",
+          "id": "UCLOx_0r-owX0m4hG60uKVGQ",
+          "statistics": {
+            "viewCount": "3372810",
+            "subscriberCount": "12800",
+            "hiddenSubscriberCount": false,
+            "videoCount": "355"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "HPHkMrrb4sBOwxXY-3qLanrsy6k",
+          "id": "UC4w1X5WWKe5TJ7d10ByVKgQ",
+          "statistics": {
+            "viewCount": "891578",
+            "subscriberCount": "4130",
+            "hiddenSubscriberCount": false,
+            "videoCount": "318"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "Uew2gF4Hl8WoOk42R2VxT0aGRkE",
+          "id": "UCNWYktYNcDfQMd9Q-HG6ZXA",
+          "statistics": {
+            "viewCount": "2933362",
+            "subscriberCount": "8920",
+            "hiddenSubscriberCount": false,
+            "videoCount": "527"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "l5xWAxD1KuQ_fk4dTfiDJc8ga-I",
+          "id": "UCzQkobSqlBEBn8er05YAIUw",
+          "statistics": {
+            "viewCount": "2006343",
+            "subscriberCount": "9210",
+            "hiddenSubscriberCount": false,
+            "videoCount": "219"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "oSt06HqjW54dkmGbAE5i4U09DOE",
+          "id": "UCKrvNOSPJnKvl9RjVK2ee9w",
+          "statistics": {
+            "viewCount": "146928",
+            "subscriberCount": "1800",
+            "hiddenSubscriberCount": false,
+            "videoCount": "105"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "YRy06HWeDPRCjffOWu68ur7Rp7k",
+          "id": "UCPi2Wz7fylAk8G0owS-pPpQ",
+          "statistics": {
+            "viewCount": "3642979",
+            "subscriberCount": "18700",
+            "hiddenSubscriberCount": false,
+            "videoCount": "235"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "qFpk3YCMVMPvqV7_j3eEWl8jOqo",
+          "id": "UCPisfu7gkSUYkgm0FiBgcEQ",
+          "statistics": {
+            "viewCount": "7009521",
+            "subscriberCount": "17300",
+            "hiddenSubscriberCount": false,
+            "videoCount": "635"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "v418OjfKh5MIRf4VDhYxfYgLNX4",
+          "id": "UCI1P_O6uwVm0kP-044ZChLg",
+          "statistics": {
+            "viewCount": "27228979",
+            "subscriberCount": "45600",
+            "hiddenSubscriberCount": false,
+            "videoCount": "1732"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "EFAdUPl3efLeSGGMtL5-PyvlTqs",
+          "id": "UC6b5jWj0jfThr_1HqrdMuCg",
+          "statistics": {
+            "viewCount": "270916",
+            "subscriberCount": "2300",
+            "hiddenSubscriberCount": false,
+            "videoCount": "122"
+          }
+        },
+        {
+          "kind": "youtube#channel",
+          "etag": "NQ2a3X6_VnvSn2KXr1d7nU6ieis",
+          "id": "UChSKbW7pPsNg6yhVDY4lTsA",
+          "statistics": {
+            "viewCount": "1777010",
+            "subscriberCount": "6310",
+            "hiddenSubscriberCount": false,
+            "videoCount": "494"
+          }
+        }
+      ]
+    }
+  }
+]
