@@ -11,23 +11,23 @@
     {
       "id": 2,
       "win": 5,
-      "lose": 5,
-      "diff": 3,
+      "lose": 6,
+      "diff": -1,
       "battlepoint": 23
     },
     {
       "id": 3,
-      "win": 8,
+      "win": 9,
       "lose": 2,
-      "diff": 9,
-      "battlepoint": 28
+      "diff": 13,
+      "battlepoint": 32
     },
     {
       "id": 4,
       "win": 3,
-      "lose": 7,
-      "diff": -14,
-      "battlepoint": 14
+      "lose": 8,
+      "diff": -16,
+      "battlepoint": 15
     },
     {
       "id": 5,
@@ -45,10 +45,10 @@
     },
     {
       "id": 7,
-      "win": 4,
+      "win": 5,
       "lose": 6,
-      "diff": -6,
-      "battlepoint": 18
+      "diff": -4,
+      "battlepoint": 21
     },
     {
       "id": 8,
