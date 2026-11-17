@@ -118,9 +118,9 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
                             ──→  scrape_player_images.py    ─────→ data/schedule.csv   ─┼→ site/*.html
                                                             └────→ data/match_results.csv│   (common.js)
  svlabo.jp                  ──→  scrape_svlabo_battle_details.py ─→ data/battle_details.csv
- （非公式・FC2ブログ）        ──→  scrape_svlabo_ranks.py      ─→ data/svlabo_leaderboards.csv（2026-11-04〜毎日自動）
+ （非公式・FC2ブログ）        ──→  scrape_svlabo_ranks.py      ─→ data/svlabo_leaderboards.csv（毎日自動。11-04〜11-16は文字コードと変数名の誤りで毎日失敗、11-17修正）
 
- 公開時（Pages のビルド）: build_site_data.py が timeseries.json / stream_stats.json / streams/*.json を _site/data に作る
+ 公開時（Pages のビルド）: build_site_data.py が timeseries.json / stream_stats.json / streams/*.json / stream_ranking.json を _site/data に作る
  （リポジトリには入れない。全ページが8MBの history.csv を読まずに済むようにするため）
 ```
 
@@ -134,7 +134,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `data/battle_details.csv` | svlabo由来の節別対戦詳細（使用クラス等） | 自動 |
 | `data/result.json` | チーム順位（公式のスコアから集計） | 自動 |
 | `data/schedule.csv` | シーズン日程 56行 / 14節 | 自動 |
-| `data/svlabo_leaderboards.csv` | ランクマッチCRランキング（svlabo の rankData から毎日まるごと作り直し） | 自動 |
+| `data/svlabo_leaderboards.csv` | ランクマッチCRランキング（svlabo の rank_YYMMDD.js〔BOM付きUTF-16〕の tmpRanks から毎日まるごと作り直し） | 自動 |
 | `data/streams.json` | YouTube ライブアーカイブ1本ごと（タイトル・開始/終了・配信時間・再生数）。1配信1行のJSON | 自動 |
 
 ### ページ構成（`site/`）
@@ -142,9 +142,11 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | ファイル | 役割 |
 |---|---|
 | `index.html` | **順位表**。先頭に「次の節」パネル。チームはアコーディオン、中身は軽量な選手名リストとチーム戦績へのリンク |
+| `contribution.html` | **貢献度**（ナビは順位表の右）。ランキングとチーム別平均の SVG グラフ。値と描画は `contribution.js`。値は第10節終了時点の固定値で、毎日の自動更新の対象外。再集計するときは `contribution.js` の `DATA` を差し替える |
 | `team.html` | **チーム戦績**。チームごとに14節を1行ずつ並べ、行を開くとバトル内訳（アコーディオン）。下に選手別・使用クラス別・先攻/後攻。`?team=` |
 | `players.html` | **選手一覧**。チームチップで絞り込み + 検索。`?team=` `?q=` 対応 |
-| `player.html` | 選手個別（折れ線グラフ + 配信分析）。`?name=`。グラフの初期表示は X フォロワー数。配信分析は `stream-analysis.js` |
+| `player.html` | 選手個別（折れ線グラフ + 貢献度 + 配信分析）。貢献度欄は `contribution.js` の `renderPlayer()`。`?name=`。グラフの初期表示は X フォロワー数。配信分析は `stream-analysis.js`（期間の初期表示は「2026年6月〜」） |
+| `streams.html` | **配信ランキング**（ナビは選手一覧の右）。月ごとの再生数上位50本。`?month=YYYY-MM`。`stream_ranking.json` を読む（無ければ streams.json から計算）。対象月は2026年6月以降（`build_site_data.py` の `RANKING_FROM_MONTH`。それより前は配信の多い選手の取得が欠けている） |
 | `rounds.html` | 通算成績 |
 | `sections.html` | 節別結果（**最新の節がデフォルト選択**） |
 | `compare.html` | 比較表。`<body class="wide">` で横幅 1560px |
@@ -175,13 +177,18 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
   - `battle_details.csv` → `(section, half, round_no, battle_no)`
   - `match_results.csv` → `(section, half, round_no, battle_no, player_name)`
 - キーが不足していると**上書きされずに行が増殖する**。実際にこれで153行のゴミが混入した。
+- **1日開催の節（3節・6節・10節・12節・14節）は表記が食い違う**: `schedule.csv` は half 空・round_no 1〜4、
+  `battle_details.csv` は 前半戦/後半戦・round_no 1〜2。ROUND を突き合わせるときは half/round_no ではなく
+  **節 + 対戦カード（2チームの組み合わせ）**で引く（1節で同じ組み合わせは1回だけ）。
+- **2回戦総当たりなので、同じ対戦カード・同じ選手の組み合わせは2回出てくる**（第1節と第8節など）。
+  試合を引くときは必ず節（section）も一致させる。
 
 ### チームタグと表記ゆれ
 
 `CR / ZETA / DFM / VRL / MRG / RC / RDL / LVH`
 
 svlabo 側は略称が違うことがあるので `TEAM_TAG_ALIASES` で吸収している（`VL→VRL`, `RID→RDL`）。
-選手名の表記ゆれは `NAME_ALIASES`（README参照）。
+選手名の表記ゆれは `NAME_ALIASES`（common.js。別名は配列で、本人名も常に対象。Chappy と ぱんさく は期間によって svlabo 上の表記が変わる）。
 
 ### クラス番号（svlabo の `battle_info`）
 
@@ -217,6 +224,10 @@ def battle_is_played(b):
 | タップ領域が 34x28 で小さすぎ | — | negative margin で 44x44 に（見た目のバーは不変） |
 | index.html の `<title>` が「選手一覧」で players.html と重複 | — | 「順位表」に修正済み |
 | 手動編集した result.json が自動処理に上書きされた | 自動取得が走る | 現在は公式から集計する方式なので手動編集は不要 |
+| ランクマッチの自動取得が 11-04〜11-16 毎日失敗していたのに気付かなかった | 模擬データだけで確かめ、実ファイル（BOM付きUTF-16、変数名 tmpRanks）で確かめていなかった。`continue-on-error` のため Actions は成功表示 | 文字コード判定と変数名を修正（11-17）。**スクレイパは実ファイルで確かめる。Actions は成功表示でもステップのログと注釈（Annotations）を見る** |
+| チーム戦績で「svlabo のデータが無い」と誤表示（1日開催の節） | half/round_no で突き合わせていた | 節 + 対戦カードで突き合わせ（11-17） |
+| 通算成績の第8節以降に第1〜4節の使用クラス・配信リンクを表示（65試合） | `findBattleDetail()` が節を見ていなかった | 節も一致させる（11-17） |
+| Chappy・ぱんさくの第8弾以降の BEYOND回数・最高順位が数えられていなかった | `NAME_ALIASES` が別名1つだけで本人名を見ていなかった | 別名を配列にし本人名も対象に（11-17） |
 
 ### 環境上のハマりどころ
 

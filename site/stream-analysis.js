@@ -3,11 +3,16 @@
 // 対象は YouTube のライブアーカイブのみ（メンバー限定・非公開と Twitch は含まない）。
 
 const STREAMS_URL = "data/streams.json";
+// 期間の選択肢。初期表示は「2026年6月〜」。「全期間」の表示名には、その選手の取得できている
+// 最古の配信の年月を付ける（renderStreamAnalysis() で「全期間（2025年6月〜）」の形にする）。
+const STREAM_SINCE_2026_06 = "2026-06-01T00:00:00+09:00";
 const STREAM_PERIODS = [
   { id: "30", label: "直近30日", days: 30 },
   { id: "90", label: "直近90日", days: 90 },
-  { id: "all", label: "取得した全期間", days: null },
+  { id: "since202606", label: "2026年6月〜", since: STREAM_SINCE_2026_06 },
+  { id: "all", label: "全期間", days: null },
 ];
+const STREAM_DEFAULT_PERIOD = "since202606";
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
 // タイトルから拾うキーワード。表示名と、タイトルに含まれるかを判定する正規表現の組。
@@ -45,9 +50,10 @@ async function loadStreams(player) {
   }
 }
 
-// 直近 days 日の配信時間の合計（秒）。選手ページ上部の「直近90日の配信時間」に使う。
-function recentStreamSeconds(streams, days) {
-  const since = Date.now() - days * 86400 * 1000;
+// sinceIso 以降の配信時間の合計（秒）。選手ページ上部の「2026年6月〜の配信時間」に使う
+// （配信分析の期間の初期表示と同じ期間）。
+function streamSecondsSince(streams, sinceIso) {
+  const since = new Date(sinceIso).getTime();
   return streams.filter(s => new Date(s.start_at).getTime() >= since)
     .reduce((sum, s) => sum + (s.duration_sec || 0), 0);
 }
@@ -69,6 +75,7 @@ function avg(list) { return list.length ? list.reduce((a, b) => a + b, 0) / list
 
 function streamsInPeriod(all, periodId) {
   const p = STREAM_PERIODS.find(x => x.id === periodId);
+  if (p.since) return all.filter(s => new Date(s.start_at).getTime() >= new Date(p.since).getTime());
   if (!p.days) return all;
   const since = Date.now() - p.days * 86400 * 1000;
   return all.filter(s => new Date(s.start_at).getTime() >= since);
@@ -84,7 +91,8 @@ function streamSummaryHTML(list, periodId, coverageStart) {
   // 「週あたり」は期間の日数で割る。ただし取得できている最古の配信より前は数えない
   // （データの無い期間まで割る日数に入れると、回数が実際より少なく見えるため）。
   const coveredDays = (Date.now() - new Date(coverageStart).getTime()) / 86400000;
-  const spanDays = period.days ? Math.min(period.days, coveredDays) : coveredDays;
+  const spanDays = period.since ? Math.min((Date.now() - new Date(period.since).getTime()) / 86400000, coveredDays)
+    : period.days ? Math.min(period.days, coveredDays) : coveredDays;
   const perWeek = spanDays > 0 ? (list.length / spanDays * 7) : null;
   const tile = (label, value, sub) => `
     <div class="quick-stat"><div class="label">${label}</div><div class="value">${value}</div>${sub ? `<div class="stream-tile-sub">${sub}</div>` : ""}</div>`;
@@ -233,18 +241,20 @@ function renderStreamAnalysis(container, player, allStreams, color) {
     return;
   }
   const oldest = mine.reduce((a, s) => s.start_at < a ? s.start_at : a, mine[0].start_at);
+  const oldestJst = toJst(oldest);
+  const optionLabel = p => p.id === "all" ? `全期間（${oldestJst.getUTCFullYear()}年${oldestJst.getUTCMonth() + 1}月〜）` : p.label;
   container.innerHTML = `
     <h2 class="stream-title">配信分析</h2>
     <div class="control-row">
       <div class="control-group">
         <label for="streamPeriod">期間</label>
-        <select id="streamPeriod">${STREAM_PERIODS.map(p => `<option value="${p.id}">${p.label}</option>`).join("")}</select>
+        <select id="streamPeriod">${STREAM_PERIODS.map(p => `<option value="${p.id}">${optionLabel(p)}</option>`).join("")}</select>
       </div>
       <div class="stream-note">YouTube のライブアーカイブが対象です（メンバー限定・Twitch は含みません）。${jstDateKey(oldest).replace(/-/g, "/")} 以降の${mine.length}本を取得済み。</div>
     </div>
     <div id="streamBody"></div>`;
   const sel = container.querySelector("#streamPeriod");
-  sel.value = "all"; // 初期表示は取得した全期間
+  sel.value = STREAM_DEFAULT_PERIOD; // 初期表示は2026年6月〜
 
   function draw() {
     const list = streamsInPeriod(mine, sel.value);

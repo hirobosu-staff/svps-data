@@ -21,10 +21,18 @@ const CR_TOPN_THRESHOLDS = [10, 30, 50, 100];
 //     ぱんさく → svlabo.jp側は"さくさくぱんだ"（そもそも表記が別物）。
 // どちらもteam_tag=RID（RIDDLE ORDER）で本人だと裏取り済み。今後similarな表記ゆれが
 // 見つかったらここに追記していく（scripts/common.pyのTEAM_TAG_ALIASESと同じ考え方）。
+// 期間によって表記が変わることがあるので配列で持ち、本人名（players.csv の名前）も常に対象にする。
+// Chappy は「Chappy_ttv」の期間と「Chappy」の期間（2026年の第8弾以降）があり、ぱんさくも同様に
+// 「さくさくぱんだ」と「ぱんさく」の両方がある。以前は別名1つだけを見ていたため、
+// 第8弾以降の記録が BEYOND回数・最高順位に数えられていなかった（2026-11-17 修正）。
 const NAME_ALIASES = {
-  "Chappy": "Chappy_ttv",
-  "ぱんさく": "さくさくぱんだ",
+  "Chappy": ["Chappy_ttv"],
+  "ぱんさく": ["さくさくぱんだ"],
 };
+// svlabo.jp 上でその選手として扱う名前（正規化済み）の一覧
+function svlaboNameKeys(player) {
+  return [...new Set([player.player_name, ...(NAME_ALIASES[player.player_name] || [])].map(normalizeName))];
+}
 
 // サイト間の表記ゆれ（全角/半角スペース・大文字小文字）を吸収する緩い正規化。
 // scripts/common.pyのnormalize_name()とロジックを合わせている。
@@ -461,11 +469,10 @@ function crAllClassTopNCounts(leaderboard, threshold) {
 }
 
 // players.csv側の選手オブジェクトから、crTopNCounts()の結果を引く。
-// NAME_ALIASESに登録があればそちらを優先し、無ければ本人の名前をそのまま
+// 本人の名前と NAME_ALIASES の別名の回数を合計する
 // 正規化して引く（全角/半角スペース・大文字小文字のゆれは自動で吸収される）。
 function crCountForPlayer(counts, player) {
-  const lookupName = NAME_ALIASES[player.player_name] || player.player_name;
-  return counts[normalizeName(lookupName)] || 0;
+  return svlaboNameKeys(player).reduce((sum, key) => sum + (counts[key] || 0), 0);
 }
 
 function crTopNLabel(threshold) {
@@ -483,8 +490,7 @@ function crAllClassTopNLabel(threshold) {
 function buildPlayerLookup(players) {
   const map = {};
   players.forEach(p => {
-    const key = normalizeName(NAME_ALIASES[p.player_name] || p.player_name);
-    map[key] = p;
+    svlaboNameKeys(p).forEach(key => { map[key] = p; });
   });
   return map;
 }
@@ -498,11 +504,10 @@ function lookupPlayer(playerLookup, rawName) {
 // 実行した選手にしか値が入らず、Atom以外ほぼ空という状態になっていた。
 // svlabo_leaderboards.csvは全選手分が揃っているので、こちらを正とする。
 function crBestRankForPlayer(leaderboard, player) {
-  const lookupName = NAME_ALIASES[player.player_name] || player.player_name;
-  const key = normalizeName(lookupName);
+  const keys = new Set(svlaboNameKeys(player));
   let best = null;
   leaderboard.forEach(r => {
-    if (normalizeName(r.player_name) !== key) return;
+    if (!keys.has(normalizeName(r.player_name))) return;
     const rank = parseInt(r.rank, 10);
     if (!Number.isNaN(rank) && (best === null || rank < best)) best = rank;
   });
@@ -543,8 +548,12 @@ function classPoolHTML(poolStr, usedName, size) {
 // キーだけでも一意に特定できている（将来、同じ2チームが複数節で再度当たった場合は
 // 突き合わせがあいまいになる可能性がある。その場合はround/日付も使った突き合わせに拡張が必要）。
 // 見つかった場合、その選手側のクラスpool・使用クラス・配信URLを返す。見つからなければnull。
-function findBattleDetail(battleDetails, teamTag, playerName, opponentTeamTag) {
+// 節（section）も一致させる。2回戦総当たりなので同じ対戦カード・同じ選手の組み合わせが
+// 2回出てくる（第1節と第8節など）。以前は節を見ておらず、第8節以降の行に第1〜4節の
+// 使用クラス・配信リンクを出していた（2026-11-17 修正）。
+function findBattleDetail(battleDetails, teamTag, playerName, opponentTeamTag, section) {
   for (const b of battleDetails) {
+    if (section && b.section !== String(section)) continue;
     if (b.team1 === teamTag && b.team2 === opponentTeamTag && b.player1 === playerName) {
       return { pool: b.class1_pool, used: b.class1_used, video_url: b.video_url, section: b.section };
     }

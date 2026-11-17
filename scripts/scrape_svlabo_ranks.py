@@ -7,7 +7,10 @@ data/svlabo_leaderboards.csv を丸ごと作り直す（BEYOND ページ・比�
     1. https://svlabo.jp/blog-entry-1608.html を取得し、ページが読み込んでいるデータファイル
        https://blog-imgs-NNN.fc2.com/d/u/e/duesemi/rank_YYMMDD.js の URL を見つける
        （ファイル名の日付とサーバー番号は更新のたびに変わる）。
-    2. その JS の中の rankData = { "期間名": [ {cls, rank, rate, name}, ... ], ... } を読む。
+    2. その JS の中の tmpRanks = { "期間名": [ {cls, rank, rate, name}, ... ], ... } を読む。
+       （ページ側は rankData という変数にこれを移して使う。JS ファイル内の変数名は tmpRanks。
+       2026-11-04 の自動化時は rankData と思い込んでいて、実ファイルで確かめていなかったため毎日失敗していた。
+       念のため rankData も探す。）
        JS を実行はせず、テキストとして切り出して JSON として読む（第三者のコードを Actions で動かさないため）。
        cls はクラス番号（1=エルフ 2=ロイヤル 3=ウィッチ 4=ドラゴン 5=ナイトメア 6=ビショップ 7=ネメシス）、
        name は「TAG｜名前」の形（最初の「｜」でチームタグと名前に分ける）。
@@ -30,11 +33,28 @@ ENTRY_URL = "https://svlabo.jp/blog-entry-1608.html"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; svps-tracker-bot/1.0)"}
 RANK_JS_RE = re.compile(r"https?://blog-imgs-\d+\.fc2\.com/d/u/e/duesemi/rank_\d+\.js")
 CLASSES = {1: "エルフ", 2: "ロイヤル", 3: "ウィッチ", 4: "ドラゴン", 5: "ナイトメア", 6: "ビショップ", 7: "ネメシス"}
+RANK_VAR_NAMES = ("tmpRanks", "rankData")  # JS ファイル内でランキングを持つ変数名（先に見つかった方を使う）
 FIELDS = ["period", "class", "rank", "team_tag", "player_name", "rating"]
 
 # 検算のしきい値（これを下回ったら取得失敗とみなし、既存CSVを残す）
 MIN_PERIODS = 10
 MIN_ROWS_PER_CLASS = 80
+
+
+def decode_js(raw):
+    """rank_YYMMDD.js のバイト列を文字列にする。
+
+    このファイルは UTF-16（先頭に BOM 付き）で配信されている（2026-11 時点）。以前は UTF-8 と決め打ちで
+    読んでいたため文字化けし、rankData が見つからずに毎日失敗していた。BOM を見て判定し、BOM が無くても
+    NUL バイトが混ざっていれば UTF-16LE とみなす。どれでもなければ UTF-8。
+    """
+    if raw[:3] == b"\xef\xbb\xbf":
+        return raw[3:].decode("utf-8")
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return raw.decode("utf-16")
+    if b"\x00" in raw[:200]:
+        return raw.decode("utf-16-le")
+    return raw.decode("utf-8")
 
 
 def extract_object(text, var_name):
@@ -141,15 +161,19 @@ def main():
     js_url = m.group(0)
     js = requests.get(js_url, headers={**HEADERS, "Referer": ENTRY_URL}, timeout=30)
     js.raise_for_status()
-    js.encoding = "utf-8"
-    src = extract_object(js.text, "rankData")
+    js_text = decode_js(js.content)
+    src = None
+    for var_name in RANK_VAR_NAMES:
+        src = extract_object(js_text, var_name)
+        if src:
+            break
     if not src:
-        print(f"[svlabo_ranks] rankData not found in {js_url}. Head: {js.text[:300]!r}", file=sys.stderr)
+        print(f"[svlabo_ranks] {'/'.join(RANK_VAR_NAMES)} not found in {js_url}. Head: {js_text[:300]!r}", file=sys.stderr)
         sys.exit(1)
     try:
         rank_data = js_object_to_json(src)
     except ValueError as e:
-        print(f"[svlabo_ranks] could not parse rankData ({e}). Head: {src[:300]!r}", file=sys.stderr)
+        print(f"[svlabo_ranks] could not parse {var_name} ({e}). Head: {src[:300]!r}", file=sys.stderr)
         sys.exit(1)
 
     rows = build_rows(rank_data)

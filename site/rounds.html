@@ -13,8 +13,10 @@
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
       <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="contribution.html">貢献度</a>
       <a class="nav-btn" href="team.html">チーム戦績</a>
       <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="streams.html">配信ランキング</a>
       <a class="nav-btn active" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
       <a class="nav-btn" href="compare.html">比較</a>
@@ -184,7 +186,7 @@ function renderPlayerMatches(app, players, images, matches, battleDetails, name)
   // 見つからない場合（まだsvlabo.jpの記事が出ていない節など）は使用クラスのアイコン単体・
   // 配信リンク無しで表示する。
   const body = rows.map(r => {
-    const detail = findBattleDetail(battleDetails, r.team_tag, r.player_name, r.opponent_team_tag);
+    const detail = findBattleDetail(battleDetails, r.team_tag, r.player_name, r.opponent_team_tag, r.section);
     const classCell = detail ? classPoolHTML(detail.pool, detail.used, 18) : `<span class="vs-cell">${classIconHTML(r.class)}</span>`;
     const section = r.section || (detail && detail.section) || "-";
     return `

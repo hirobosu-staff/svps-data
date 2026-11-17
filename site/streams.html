@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配信ランキング | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <input type="checkbox" id="navToggle" class="nav-toggle-input">
+  <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
+  <nav>
+      <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="contribution.html">貢献度</a>
+      <a class="nav-btn" href="team.html">チーム戦績</a>
+      <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn active" href="streams.html">配信ランキング</a>
+      <a class="nav-btn" href="rounds.html">通算成績</a>
+      <a class="nav-btn" href="sections.html">節別結果</a>
+      <a class="nav-btn" href="compare.html">比較</a>
+      <a class="nav-btn" href="beyond.html">BEYOND</a>
+    </nav>
+</header>
+<main id="app">
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// 配信ランキング。日本時間の月ごとに、PS出場選手の YouTube ライブアーカイブを再生数の多い順に並べる。
+// 公開時は scripts/build_site_data.py が作る data/stream_ranking.json（月ごとの上位50本だけ）を読む。
+// 無いとき（手元で site/ をそのまま開いたときなど）は data/streams.json から同じ計算をする。
+const STREAM_RANKING_URL = "data/stream_ranking.json";
+const RANKING_TOP_N = 50;
+const RANKING_FROM_MONTH = "2026-06"; // build_site_data.py の RANKING_FROM_MONTH と合わせる
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+
+function jst(iso) { return new Date(new Date(iso).getTime() + 9 * 3600 * 1000); }
+function monthKey(iso) { return jst(iso).toISOString().slice(0, 7); }
+function monthLabel(key) { return `${key.slice(0, 4)}年${Number(key.slice(5, 7))}月`; }
+function hm(sec) {
+  if (sec == null) return "-";
+  const t = Math.round(sec / 60), h = Math.floor(t / 60), m = t % 60;
+  return h ? `${h}時間${String(m).padStart(2, "0")}分` : `${m}分`;
+}
+function mdLabel(dateStr) { return dateStr ? `${Number(dateStr.slice(5, 7))}/${Number(dateStr.slice(8, 10))}` : "-"; }
+
+async function loadRanking() {
+  try {
+    const resp = await fetch(STREAM_RANKING_URL);
+    if (resp.ok) return await resp.json();
+  } catch (e) { /* 下の streams.json で計算する */ }
+  const resp = await fetch("data/streams.json");
+  if (!resp.ok) throw new Error(`data/streams.json: HTTP ${resp.status}`);
+  const data = await resp.json();
+  const months = {};
+  (data.streams || []).filter(s => s.status === "ok" && s.start_at).forEach(s => {
+    const key = monthKey(s.start_at);
+    if (key < RANKING_FROM_MONTH) return;
+    const m = months[key] || (months[key] = { count: 0, with_views: 0, all: [] });
+    m.count++;
+    if (s.view_count != null) { m.with_views++; m.all.push(s); }
+  });
+  Object.values(months).forEach(m => {
+    m.top = m.all.sort((a, b) => b.view_count - a.view_count || (a.start_at < b.start_at ? -1 : 1)).slice(0, RANKING_TOP_N);
+    delete m.all;
+  });
+  return { updated: data.updated, top_n: RANKING_TOP_N, months };
+}
+
+function rankingTableHTML(m) {
+  if (!m || !m.top.length) return stateHTML("empty", "この月の配信はありません");
+  return `<div class="table-scroll"><table class="rank-table stream-rank">
+    <thead><tr><th class="num">順位</th><th>選手</th><th>配信</th><th class="num">再生数</th><th class="num">取得日</th></tr></thead>
+    <tbody>${m.top.map((s, i) => {
+      const d = jst(s.start_at);
+      const when = `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]}) ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}開始・${hm(s.duration_sec)}`;
+      const playerLink = size => `<a href="player.html?name=${encodeURIComponent(s.player_name)}#streamAnalysis">${teamLogoHTML(s.team_tag, size)}<span>${escapeAttr(s.player_name)}</span></a>`;
+      // スマホでは「選手」「取得日」の列を隠し、同じ内容をタイトルの下に出す（stream-rank__sp。PCでは非表示）
+      return `<tr>
+        <td class="num stream-rank__pos">${i + 1}</td>
+        <td class="stream-rank__player">${playerLink(18)}</td>
+        <td><div class="stream-rank__sp stream-rank__player">${playerLink(14)}</div>
+          <a class="stream-rank__title" href="https://www.youtube.com/watch?v=${encodeURIComponent(s.video_id)}" target="_blank" rel="noopener">${escapeAttr(s.title)}</a>
+          <div class="stream-rank__when">${when}<span class="stream-rank__sp">・再生数は${mdLabel(s.views_at)}取得</span></div></td>
+        <td class="num stream-rank__views">${fmtNum(s.view_count)}</td>
+        <td class="num stream-rank__at">${mdLabel(s.views_at)}</td>
+      </tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+
+async function boot() {
+  const app = document.getElementById("app");
+  let data;
+  try {
+    data = await loadRanking();
+  } catch (err) {
+    app.innerHTML = loadErrorHTML(err);
+    return;
+  }
+  const keys = Object.keys(data.months || {}).sort().reverse();
+  if (!keys.length) {
+    app.innerHTML = stateHTML("empty", "配信のデータはまだありません");
+    return;
+  }
+  const topN = data.top_n || RANKING_TOP_N;
+  const param = new URLSearchParams(location.search).get("month");
+  app.innerHTML = `
+    <div class="control-row">
+      <div class="control-group">
+        <label for="rankMonth">月</label>
+        <select id="rankMonth">${keys.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join("")}</select>
+      </div>
+      <div class="stream-note" id="rankSummary"></div>
+    </div>
+    <div id="rankBody"></div>
+    <p class="stream-note stream-rank__note">PS出場選手の YouTube ライブアーカイブが対象です（メンバー限定配信と Twitch は含みません）。月は配信を始めた日（日本時間）で分けています。再生数は配信開始から14日間は毎日取り直し、その後は最後に取った値のままです。取得日はその再生数を取った日です。配信データの最終更新は ${escapeAttr(data.updated || "-")} です。</p>`;
+  const sel = document.getElementById("rankMonth");
+  sel.value = keys.includes(param) ? param : keys[0];
+  function draw() {
+    const m = data.months[sel.value];
+    document.getElementById("rankSummary").textContent =
+      `${monthLabel(sel.value)}の配信${m.count}本のうち、再生数を取得できた${m.with_views}本の上位${Math.min(topN, m.with_views)}本`;
+    document.getElementById("rankBody").innerHTML = rankingTableHTML(m);
+  }
+  sel.addEventListener("change", () => {
+    const url = new URL(location.href);
+    url.searchParams.set("month", sel.value);
+    history.replaceState(null, "", url);
+    draw();
+  });
+  draw();
+}
+
+boot();
+</script>
+</body>
+</html>

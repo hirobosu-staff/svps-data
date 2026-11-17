@@ -391,6 +391,44 @@ table.rank-table.stream-list td a:hover { color: var(--accent); }
 /* compare.html: 表で比較の期間セレクタ横の注記 */
 .compare-note { font-size: 12px; color: var(--text-muted); line-height: 1.6; max-width: 640px; align-self: center; }
 
+/* streams.html 配信ランキング */
+table.rank-table.stream-rank th.num, table.rank-table.stream-rank td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.rank-table.stream-rank td { vertical-align: top; }
+.stream-rank__pos { color: var(--text-muted); width: 3em; }
+.stream-rank__player { white-space: nowrap; }
+.stream-rank__player a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.stream-rank__player a:hover { color: var(--accent); }
+a.stream-rank__title { color: inherit; text-decoration: none; line-height: 1.5; }
+a.stream-rank__title:hover { color: var(--accent); }
+.stream-rank__when { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.stream-rank__views { font-weight: 700; }
+.stream-rank__at { font-size: 12px; color: var(--text-muted); }
+.stream-rank__note { margin-top: 12px; max-width: 760px; }
+.stream-rank__sp { display: none; }
+
+/* contribution.html と player.html「貢献度」（contribution.js）。
+   グラフの色・寸法は contribution.js の SVG 側で持っているので、ここは枠と表だけ */
+.contrib-title { font-size: 18px; margin: 28px 0 10px; }
+.contrib-page > .contrib-title:first-child { margin-top: 4px; }
+.contrib-player { margin-top: 32px; scroll-margin-top: 84px; } /* 固定ヘッダーに隠れないように */
+.contrib-player .contrib-title { margin-top: 0; }
+.contrib-sub { font-size: 14px; margin: 22px 0 8px; }
+.contrib-chart { max-width: 760px; margin: 8px 0 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.contrib-chart svg { display: block; width: 100%; height: auto; min-width: 560px; font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; }
+.contrib-note { font-size: 12px; color: var(--text-muted); line-height: 1.6; max-width: 760px; }
+.contrib-rank { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.contrib-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.rank-table.contrib-calc { min-width: 720px; }
+table.rank-table.contrib-calc td { vertical-align: top; line-height: 1.6; }
+table.rank-table.contrib-calc td.f { font-variant-numeric: tabular-nums; }
+table.rank-table.contrib-calc .item { font-weight: 700; white-space: nowrap; }
+table.rank-table.contrib-calc .item.sub { font-weight: 400; color: var(--text-muted); padding-left: 1.6em; }
+table.rank-table.contrib-calc tr.total td { font-weight: 700; border-top: 2px solid var(--text); }
+table.rank-table.contrib-calc .num, table.rank-table.contrib-ladder .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.rank-table.contrib-ladder { max-width: 560px; }
+.contrib-src { padding-left: 1.2em; margin: 8px 0 0; font-size: 13px; line-height: 1.7; }
+.contrib-src a { color: var(--accent); }
+
 /* スマホ用ナビ（ハンバーガー）のトグル。PCでは完全に隠し、ナビは従来通りのタブ表示。
    チェックボックス+labelで作っているのでJSは不要
    （<details>だとPCでナビ本体まで折りたたまれてしまうためこの方式にした）。 */
@@ -547,6 +585,12 @@ table.rank-table.stream-list td a:hover { color: var(--accent); }
      1文字ずつ折り返されて読めなくなるので、折り返さず横スクロールさせる。 */
   .table-scroll table.rank-table th,
   .table-scroll table.rank-table td { white-space: nowrap; }
+  /* 配信ランキングはタイトルが長いので折り返す（順位・選手・数値の列は折り返さない） */
+  .table-scroll table.rank-table.stream-rank td:not(.num):not(.stream-rank__player) { white-space: normal; }
+  table.rank-table.stream-rank th:nth-child(2), table.rank-table.stream-rank td.stream-rank__player,
+  table.rank-table.stream-rank th:nth-child(5), table.rank-table.stream-rank td.stream-rank__at { display: none; }
+  div.stream-rank__sp { display: block; margin-bottom: 2px; font-size: 12px; }
+  span.stream-rank__sp { display: inline; }
   .chart-box { overflow-x: auto; }
   .chart-box table.rank-table th,
   .chart-box table.rank-table td { white-space: nowrap; }

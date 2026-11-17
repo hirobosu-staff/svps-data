@@ -13,8 +13,10 @@
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
       <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="contribution.html">貢献度</a>
       <a class="nav-btn active" href="team.html">チーム戦績</a>
       <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="streams.html">配信ランキング</a>
       <a class="nav-btn" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
       <a class="nav-btn" href="compare.html">比較</a>
@@ -34,7 +36,7 @@
 // データの出どころ:
 //   - 行（日付・対戦相手・スコア）: schedule.csv（公式。全14節分あるので未実施の節も出せる）
 //   - 開いた中身: battle_details.csv（svlabo由来。チームバトル・使用/未使用クラス・配信URLあり）
-//     battle_details.csvに無い節（1日4ROUND開催の3節・6節など）は match_results.csv（公式）で代替する。
+//     battle_details.csvにまだ無いROUND（svlaboの記事が出る前など）は match_results.csv（公式）で代替する。
 //     こちらは個人戦3枠だけでチームバトル・クラス候補・配信URLは持っていない。
 // 下の「選手別」「クラス別」も、開いた中身と同じバトル一覧から集計しているので数字は必ず一致する。
 
@@ -45,8 +47,13 @@ let currentTeam = "";
 // 指定チーム視点で、1ROUND分のバトル一覧を返す。
 // 戻り値: { source: "svlabo" | "official" | "none", battles: [{ no, me, mePool, meUsed, opp, oppPool, oppUsed, fise, win, video, isTeam }] }
 function roundBattles(team, r) {
+  // 節と対戦カード（2チームの組み合わせ）で突き合わせる。1節で同じ組み合わせは1回だけ。
+  // 以前は half と round_no も一致させていたが、1日開催の節（3節・6節・10節など）は schedule.csv が
+  // half 空・ROUND 1〜4、battle_details.csv が 前半戦/後半戦・ROUND 1〜2 と付け方が違うため一致せず、
+  // svlabo のデータがあるのに「データが無い」と表示していた（2026-11-17 修正）。
+  const pair = [r.team1, r.team2].sort().join("|");
   const fromDetails = battleDetails.filter(b =>
-    b.section === r.section && b.half === r.half && b.round_no === r.round_no
+    b.section === r.section && [b.team1, b.team2].sort().join("|") === pair
     && (b.team1 === team || b.team2 === team));
   if (fromDetails.length) {
     const battles = fromDetails.map(b => {
@@ -124,7 +131,7 @@ function roundDetailHTML(team, item) {
     return stateHTML("empty", "このROUNDのバトル内訳はまだ取得できていません");
   }
   const note = source === "official"
-    ? `<div class="team-result__note">この節は節別詳細（svlabo）のデータが無いため、公式サイトの個人戦3枠のみ表示しています。チームバトル・クラス候補・配信リンクはありません。</div>`
+    ? `<div class="team-result__note">このROUNDは節別詳細（svlabo）のデータがまだ無いため、公式サイトの個人戦3枠のみ表示しています。チームバトル・クラス候補・配信リンクはありません。</div>`
     : "";
   const rows = battles.map(b => `
     <tr>

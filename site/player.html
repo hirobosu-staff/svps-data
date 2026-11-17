@@ -14,8 +14,10 @@
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
       <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="contribution.html">貢献度</a>
       <a class="nav-btn" href="team.html">チーム戦績</a>
       <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="streams.html">配信ランキング</a>
       <a class="nav-btn" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
       <a class="nav-btn" href="compare.html">比較</a>
@@ -28,6 +30,7 @@
 
 <script src="common.js"></script>
 <script src="stream-analysis.js"></script>
+<script src="contribution.js"></script>
 <script>
 let chart = null;
 
@@ -98,7 +101,7 @@ async function boot() {
 
   const followers = latestValue(history, name, "followers");
   const yt = latestValue(history, name, "youtube_subscribers");
-  const recentStreamSec = streams.length ? recentStreamSeconds(streams, 90) : null;
+  const recentStreamSec = streams.length ? streamSecondsSince(streams, STREAM_SINCE_2026_06) : null;
   const color = TEAM_COLORS[player.team_tag] || "#888";
 
   app.innerHTML = `
@@ -123,7 +126,7 @@ async function boot() {
         ${player.youtube_url ? `<a href="${player.youtube_url}" target="_blank" rel="noopener" style="font-size:12px;">YouTube</a>` : ""}
       </div>
       <div class="quick-stat">
-        <div class="label">直近90日の配信時間</div>
+        <div class="label">2026年6月〜の配信時間</div>
         <div class="value">${recentStreamSec != null ? fmtNum(Math.round(recentStreamSec / 360) / 10) + "h" : "-"}</div>
         <a href="#streamAnalysis" style="font-size:12px;">配信分析を見る</a>
       </div>
@@ -148,6 +151,7 @@ async function boot() {
       </div>
       <div class="chart-box"><canvas id="chart"></canvas></div>
     ` : stateHTML("empty", "この選手の推移データはまだありません")}
+    <section class="contrib-player" id="contribution"></section>
     <section class="stream-analysis" id="streamAnalysis"></section>
   `;
 
@@ -160,6 +164,10 @@ async function boot() {
     drawChart(history, name, sel.value, color);
   }
   renderStreamAnalysis(document.getElementById("streamAnalysis"), player, streams, color);
+  // 貢献度（contribution.js。第10節終了時点の固定値なので読み込みは不要）
+  Contribution.renderPlayer(document.getElementById("contribution"), name);
+  // 貢献度ページから player.html?name=...#contribution で来たとき、描画が後になるので自分でスクロールする
+  if (location.hash === "#contribution") document.getElementById("contribution").scrollIntoView();
 }
 
 boot();

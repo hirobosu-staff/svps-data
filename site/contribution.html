@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>貢献度 | Shadowverse Premier Series 26-27 選手データ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="index.html">Shadowverse Premier Series 26-27 選手データ</a></h1>
+  <input type="checkbox" id="navToggle" class="nav-toggle-input">
+  <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
+  <nav>
+      <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn active" href="contribution.html">貢献度</a>
+      <a class="nav-btn" href="team.html">チーム戦績</a>
+      <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="streams.html">配信ランキング</a>
+      <a class="nav-btn" href="rounds.html">通算成績</a>
+      <a class="nav-btn" href="sections.html">節別結果</a>
+      <a class="nav-btn" href="compare.html">比較</a>
+      <a class="nav-btn" href="beyond.html">BEYOND</a>
+    </nav>
+</header>
+<main id="app" class="contrib-page"></main>
+
+<!-- 貢献度のグラフ（集計値と描画処理は contribution.js。データの読み込みは不要） -->
+<script src="contribution.js"></script>
+<script>
+Contribution.renderPage(document.getElementById("app"));
+</script>
+</body>
+</html>

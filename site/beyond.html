@@ -13,8 +13,10 @@
   <label class="nav-toggle-label" for="navToggle" aria-label="メニュー"><span class="nav-toggle-bar"></span></label>
   <nav>
       <a class="nav-btn" href="index.html">順位表</a>
+      <a class="nav-btn" href="contribution.html">貢献度</a>
       <a class="nav-btn" href="team.html">チーム戦績</a>
       <a class="nav-btn" href="players.html">選手一覧</a>
+      <a class="nav-btn" href="streams.html">配信ランキング</a>
       <a class="nav-btn" href="rounds.html">通算成績</a>
       <a class="nav-btn" href="sections.html">節別結果</a>
       <a class="nav-btn" href="compare.html">比較</a>
@@ -93,12 +95,23 @@ function uniqueSvlaboPlayers(list) {
   return out;
 }
 
+// 検索語。PS出場選手の名前そのものなら、svlabo上の別表記（NAME_ALIASES）も含める
+// （選手詳細の「BEYOND」リンクは ?name=ぱんさく で来るが、svlabo上は「さくさくぱんだ」の期間もあるため）。
+function searchKeys(query) {
+  const p = lookupPlayer(playerLookup, query);
+  return p ? [normalizeName(query), ...svlaboNameKeys(p)] : [normalizeName(query)];
+}
+function matchesSearch(r, keys) {
+  const name = normalizeName(r.player_name), display = normalizeName(displayPlayerName(r.team_tag, r.player_name));
+  return keys.some(q => name.includes(q) || display.includes(q));
+}
+
 function applySearch(rows, query) {
   if (!query.trim()) return rows;
-  const q = normalizeName(query);
+  const keys = searchKeys(query);
   // 「あいむ｜UFV」のように表示上はタグ込みの名前になっている選手も検索で拾えるように、
   // 選手名だけでなく表示上のタグ部分も対象にする。
-  return rows.filter(r => normalizeName(r.player_name).includes(q) || normalizeName(displayPlayerName(r.team_tag, r.player_name)).includes(q));
+  return rows.filter(r => matchesSearch(r, keys));
 }
 
 // 上位を薄く色分けするための行クラス（1位・2位・3位はそれぞれ金銀銅で、4〜10位はまとめて軽くハイライトする）。
@@ -126,8 +139,8 @@ function searchHeaderHTML(rows) {
 }
 
 function renderSearchResults(container) {
-  const q = normalizeName(filters.query);
-  const rows = svlabo.filter(r => normalizeName(r.player_name).includes(q) || normalizeName(displayPlayerName(r.team_tag, r.player_name)).includes(q));
+  const keys = searchKeys(filters.query);
+  const rows = svlabo.filter(r => matchesSearch(r, keys));
 
   const body = rows.map(r => `
     <tr class="${rankRowClass(parseInt(r.rank, 10))}">
