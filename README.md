@@ -29,6 +29,8 @@ svps-tracker/
 │   ├── scrape_schedule.py      シーズン全体の日程（schedule.csv）を公式サイトから取得（毎日自動。詳細は「日程について」参照）
 │   ├── scrape_svlabo.py        svlabo.jp から ランクマッチ最高順位・レート を取得（★自動実行からは除外。手動で使う用に残してあるだけ）
 │   ├── scrape_svlabo_ranks.py  svlabo.jp の tmpRanks から data/svlabo_leaderboards.csv を毎日まるごと作り直す（毎日自動。実際に動くのは2026-11-17の修正以降）
+│   ├── scrape_uploads.py       YouTube の投稿動画（ライブ以外）の再生数を data/uploads.json に毎日取り直す（貢献度用。YouTube Data API）
+│   ├── build_contribution.py   貢献度を毎日の取得データ＋data/contribution_manual.json から計算し contribution.json を作る（公開時）
 │   ├── build_site_data.py      公開時に、ページが読む小さな集計済みファイルを作る（Pagesのビルド時に実行。詳細は「ページの読み込みの軽量化について」）
 │   ├── scrape_svlabo_battle_details.py  svlabo.jpの「N節 試合詳細結果＆配信時間指定URL」記事を取り込む
 │   │                             （毎日自動。カテゴリページを巡回して新しい節の記事を自動発見する。
@@ -61,8 +63,8 @@ svps-tracker/
     ├── index.html               順位表（トップページ）。上部に「次の節」パネル、その下にチーム順位表。
     │                             チームをクリックすると選手カードが展開されるアコーディオン形式
     ├── contribution.html        貢献度（37選手の貢献度ランキングとチーム別平均のグラフ。ナビは順位表の右）
-    ├── contribution.js          貢献度の集計値（第10節終了時点の固定値。自動更新しない）と、グラフ・
-    │                             選手詳細の「貢献度」欄の描画。contribution.htmlとplayer.htmlが使う
+    ├── contribution.js          貢献度のグラフと選手詳細の「貢献度」欄の描画（値は data/contribution.json。
+    │                             公開時に scripts/build_contribution.py が毎日計算する）。contribution.htmlとplayer.htmlが使う
     ├── team.html                チーム戦績（チームごとに14節分の結果を1行ずつ並べ、行を開くとバトル内訳を表示。
     │                             ?team=CR で直接開ける。詳細は「チーム戦績について」参照）
     ├── players.html             選手一覧（37人をフラットに表示。チーム絞り込みチップが主、名前検索が従。
@@ -378,6 +380,33 @@ python scrape_svlabo_battle_details.py \
 その節でチームバトル枠にしか出ていない選手の試合は突き合わせが見つからず「配信: -」のままになります**
 （バグではなく、単にその節のsvlabo.jp記事がまだ公開されていない/未実施として除外されているだけです。
 記事が公開されて結果が埋まれば、翌日の巡回で自動的に取り込まれます）。
+
+## 貢献度について（build_contribution.py / contribution_manual.json / scrape_uploads.py）
+
+貢献度は、公開時（Pages のビルド）に `scripts/build_contribution.py` が毎日計算し直し、`data/contribution.json`
+（公開用の出力先だけに置く）を作ります。計算式と配点は、元の配点シミュレーターの案Aと同じです。
+2026-11-17 までは第10節終了時点の値を `site/contribution.js` に直接書いていました。
+
+| 項目 | 元データ | 更新 |
+|---|---|---|
+| 競技 | `match_results.csv` の個人戦（バトル1〜3）の勝敗 | 自動 |
+| 配信（ライブ合計・1本あたり） | `streams.json` の 8月3日〜最新のライブ配信 | 自動 |
+| 配信（投稿動画） | `uploads.json`（`scrape_uploads.py`。レギュラーシーズン開始日以降の、ライブ配信・プレミア公開以外の動画） | 自動。`uploads.json` が無い間は shadowverse-reference.com の11月4日の値 |
+| ランクマッチ補正 | `svlabo_leaderboards.csv` の第8弾前半戦以降・各クラス100位以内の回数。満点の基準は最多回数の選手 | 自動（新しい期間も自動で入る） |
+| 表彰・大会加点・note・WGP予選 | `data/contribution_manual.json` | 手入力 |
+| Twitchのみの選手（Chappy）の配信 | `contribution_manual.json` の推計値（11月4日の視聴時間から算出） | 固定 |
+
+満点の基準（競技の最高素点、ライブ再生数・1本あたり・投稿動画の最高値）も毎回計算し直すので、
+他の選手の数字が伸びると、自分の点数が下がることがあります。
+
+### 手入力分の追加（`data/contribution_manual.json`）
+
+`players` の該当選手に追記します。
+- 表彰: `awards` に `{"name": "ベストバウト賞", "event": "第3回アワード（第12節の試合）", "kind": "B"}`。`kind` は P（プロモーションスター賞）か B（ベストバウト賞）
+- 大会: `tournaments` に `{"event": "大会名（日付）", "result": "準優勝", "kind": "second", "url": "結果の出典URL"}`。`kind` は win / second / third / top8
+- note: `note` の `score`（0〜3の評価値）と `articles`
+- 配点を変えるときは `weights`。選手名の svlabo 上の別表記は `svlabo_name_aliases`（`site/common.js` の `NAME_ALIASES` と合わせる）
+- 第10弾など新しいカードパックの期間名は `expansion_labels` に足すと「第10弾 前半戦」の表記になる（足さなくても svlabo の期間名で表示される）
 
 ## チーム戦績について（team.html）
 

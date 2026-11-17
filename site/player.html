@@ -164,10 +164,11 @@ async function boot() {
     drawChart(history, name, sel.value, color);
   }
   renderStreamAnalysis(document.getElementById("streamAnalysis"), player, streams, color);
-  // 貢献度（contribution.js。第10節終了時点の固定値なので読み込みは不要）
-  Contribution.renderPlayer(document.getElementById("contribution"), name);
-  // 貢献度ページから player.html?name=...#contribution で来たとき、描画が後になるので自分でスクロールする
-  if (location.hash === "#contribution") document.getElementById("contribution").scrollIntoView();
+  // 貢献度（contribution.js が data/contribution.json を読んで描く）
+  Contribution.renderPlayer(document.getElementById("contribution"), name).then(() => {
+    // 貢献度ページから player.html?name=...#contribution で来たとき、描画が後になるので自分でスクロールする
+    if (location.hash === "#contribution") document.getElementById("contribution").scrollIntoView();
+  });
 }
 
 boot();

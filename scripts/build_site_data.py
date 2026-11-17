@@ -13,6 +13,7 @@ shadowverse-reference.com の期間集計を毎日記録し直した行で、画
     stream_stats.json  … 選手ごとの配信集計（直近30日・直近90日・取得した全期間）。比較ページが使う
     streams/{channel_id}.json … 選手1人分の配信一覧。選手詳細の配信分析が使う
     stream_ranking.json … 月ごとの再生数上位の配信（配信ランキングページ streams.html が使う）
+    contribution.json  … 貢献度（scripts/build_contribution.py。contribution.html と選手詳細が使う）
 """
 import csv
 import json
@@ -151,7 +152,9 @@ def main():
     out_dir = sys.argv[1]
     points = build_timeseries(out_dir)
     channels, streams = build_streams(out_dir)
-    print(f"[build_site_data] timeseries.json: {points} points / streams: {channels} channels, {streams} streams -> {out_dir}")
+    from build_contribution import write as write_contribution  # 同じ scripts/ にある
+    contrib_players = write_contribution(out_dir)
+    print(f"[build_site_data] timeseries.json: {points} points / streams: {channels} channels, {streams} streams / contribution.json: {contrib_players} players -> {out_dir}")
 
 
 if __name__ == "__main__":

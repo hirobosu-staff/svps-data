@@ -28,6 +28,7 @@ const CR_TOPN_THRESHOLDS = [10, 30, 50, 100];
 const NAME_ALIASES = {
   "Chappy": ["Chappy_ttv"],
   "ぱんさく": ["さくさくぱんだ"],
+  "Mishadow51": ["Mishadow"],  // svlabo 上は「VL｜Mishadow」（2026-11-17 に気付いて追加）
 };
 // svlabo.jp 上でその選手として扱う名前（正規化済み）の一覧
 function svlaboNameKeys(player) {

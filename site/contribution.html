@@ -23,9 +23,12 @@
       <a class="nav-btn" href="beyond.html">BEYOND</a>
     </nav>
 </header>
-<main id="app" class="contrib-page"></main>
+<main id="app" class="contrib-page">
+  <div class="state state--loading" role="status"><span class="state__spinner" aria-hidden="true"></span><span>読み込み中</span></div>
+</main>
 
-<!-- 貢献度のグラフ（集計値と描画処理は contribution.js。データの読み込みは不要） -->
+<!-- 貢献度のグラフ（描画は contribution.js。値は公開時に作る data/contribution.json） -->
+<script src="common.js"></script>
 <script src="contribution.js"></script>
 <script>
 Contribution.renderPage(document.getElementById("app"));

@@ -61,6 +61,15 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
 
+      - name: Fetch YouTube uploaded videos (uploads.json)
+        # 貢献度の「投稿動画」用。各チャンネルのライブ配信以外の動画の再生数を、レギュラーシーズン開始日以降の分だけ
+        # YouTube Data API で毎日取り直す（scrape_uploads.py 参照）。失敗したチャンネルは前回の値を残す。
+        working-directory: scripts
+        run: python scrape_uploads.py
+        continue-on-error: true
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+
       - name: Scrape ps.shadowverse-wb.com
         working-directory: scripts
         run: python scrape_ps_results.py

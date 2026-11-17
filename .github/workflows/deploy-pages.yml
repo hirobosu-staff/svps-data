@@ -18,6 +18,10 @@ on:
       - "data/svlabo_leaderboards.csv"
       - "data/battle_details.csv"
       - "data/streams.json"
+      - "data/uploads.json"
+      - "data/contribution_manual.json"
+      - "scripts/build_site_data.py"
+      - "scripts/build_contribution.py"
   workflow_dispatch: {}
 
 permissions:

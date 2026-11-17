@@ -1,0 +1,778 @@
+{
+ "_説明": "貢献度の手入力分（自動で取れない項目）。scripts/build_contribution.py が毎日取得するデータと合わせて計算する。書き方は README の「貢献度について」参照。",
+ "weights": {
+  "C": 45,
+  "LT": 14,
+  "LM": 14,
+  "V": 4,
+  "N": 3,
+  "P": 12,
+  "B": 4,
+  "win": 10,
+  "second": 8,
+  "third": 6,
+  "top8": 5,
+  "Q1": 10,
+  "Q2": 8,
+  "Q4": 6,
+  "Q8": 5,
+  "Q16": 4,
+  "Q3": 1.5,
+  "L": 5
+ },
+ "live_from": "2026-08-03",
+ "ladder_from_period": "クロニクル・オブ・デスティニー 前半戦",
+ "expansion_labels": {
+  "クロニクル・オブ・デスティニー": "第8弾",
+  "アズヴォルト・レヴナント": "第9弾"
+ },
+ "twitch_estimate": {
+  "a": -19.928387946992217,
+  "b": 8.946682672161858,
+  "n": 35,
+  "source": "shadowverse-reference.com の視聴時間（11月4日更新。以後は取得元の更新停止により固定）"
+ },
+ "svlabo_name_aliases": {
+  "Chappy": [
+   "Chappy_ttv"
+  ],
+  "ぱんさく": [
+   "さくさくぱんだ"
+  ],
+  "Mishadow51": [
+   "Mishadow"
+  ]
+ },
+ "players": [
+  {
+   "player": "Toby",
+   "vision_slug": "toby",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "プロモーションスター賞",
+     "event": "第2回アワード（第9弾）",
+     "kind": "P"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Era53",
+   "vision_slug": "era53",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "プロモーションスター賞",
+     "event": "第1回アワード（第8弾）",
+     "kind": "P"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "rikka",
+   "vision_slug": "rikka",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "ベストバウト賞",
+     "event": "第2回アワード（第8節の試合）",
+     "kind": "B"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "w3",
+    "swiss": "3勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "glory",
+   "vision_slug": "glory",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "ベストバウト賞",
+     "event": "第1回アワード（第3節の試合）",
+     "kind": "B"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "5勝1敗",
+    "detail": "1回戦 ヘイムに敗退"
+   }
+  },
+  {
+   "player": "拓海",
+   "vision_slug": "takumi",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "w3",
+    "swiss": "3勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "ヘイム",
+   "vision_slug": "heimu",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "ベストバウト賞",
+     "event": "第1回アワード（第3節の試合）",
+     "kind": "B"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top4",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 glory、準々決勝 Mishadow51に勝利、準決勝 あぐのむに敗退"
+   }
+  },
+  {
+   "player": "ユーリ",
+   "vision_slug": "yuuri",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "second",
+    "swiss": "5勝1敗",
+    "detail": "1回戦シード、準々決勝 Spicies、準決勝 かなでに勝利、決勝 あぐのむに敗退"
+   }
+  },
+  {
+   "player": "Spicies",
+   "vision_slug": "spicies",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top8",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 ぱらちゃんに勝利、準々決勝 ユーリに敗退"
+   }
+  },
+  {
+   "player": "CQCQ",
+   "vision_slug": "cqcq",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 かなでに敗退"
+   }
+  },
+  {
+   "player": "ふえた",
+   "vision_slug": "fueta",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "ミル",
+   "vision_slug": "mill",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "w3",
+    "swiss": "3勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "マイト",
+   "vision_slug": "maito",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Atom",
+   "vision_slug": "atom",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [
+    {
+     "event": "OCS 2026 November（11月7〜15日）",
+     "result": "5位タイ（ベスト8）",
+     "kind": "top8",
+     "url": "https://ocs.shadowverse-wb.com/ja/2026/november/results/"
+    }
+   ],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "w3",
+    "swiss": "3勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "まっつ",
+   "vision_slug": "mattsu",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [
+    {
+     "event": "ICS 2026 Singapore（9月26〜27日）",
+     "result": "ベスト8（予選9戦全勝）",
+     "kind": "top8",
+     "url": "https://onemoregame.ph/2026/10/shadowverse-international-2026-sg-chappy/"
+    },
+    {
+     "event": "RAGE JCS 2026 Season 3（10月25日決勝）",
+     "result": "準優勝",
+     "kind": "second",
+     "url": "https://gamebiz.jp/news/434703"
+    }
+   ],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Chappy",
+   "vision_slug": "chappy",
+   "send": "twitch_est",
+   "est35": 20.1,
+   "watch_hours": 29989.0,
+   "awards": [],
+   "tournaments": [
+    {
+     "event": "ICS 2026 Singapore（9月26〜27日）",
+     "result": "優勝",
+     "kind": "win",
+     "url": "https://ics.shadowverse-wb.com/ja/news/detail/?id=75"
+    }
+   ],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Stylish_deko",
+   "vision_slug": "stylishdeko",
+   "send": "youtube",
+   "awards": [
+    {
+     "name": "ベストバウト賞",
+     "event": "第2回アワード（第8節の試合）",
+     "kind": "B"
+    }
+   ],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "たばた",
+   "vision_slug": "tabata",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "ぱらちゃん",
+   "vision_slug": "parachan",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [
+    {
+     "event": "RAGE JCS 2026 Season 3（10月25日決勝）",
+     "result": "3位",
+     "kind": "third",
+     "url": "https://gamebiz.jp/news/434703"
+    }
+   ],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 Spiciesに敗退"
+   }
+  },
+  {
+   "player": "つきあかめん",
+   "vision_slug": "tsukiakamen",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "かなで",
+   "vision_slug": "kanade",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top4",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 CQCQ、準々決勝 ねぎまに勝利、準決勝 ユーリに敗退"
+   }
+  },
+  {
+   "player": "TBT",
+   "vision_slug": "tbt",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 3,
+    "account": "https://note.com/tabe_tter",
+    "articles": [
+     {
+      "title": "PS観戦ガイド：PSスクリム振り返りと第1節の見どころ紹介",
+      "date": "7月8日",
+      "url": "https://note.com/tabe_tter/n/n90baab12e27f"
+     },
+     {
+      "title": "PS観戦ガイド【第8節 前半】",
+      "date": "10月ごろ",
+      "url": "https://note.com/tabe_tter/n/n7e5d1575d5a9"
+     }
+    ]
+   },
+   "wgp_qualifier": {
+    "result": "top8",
+    "swiss": "5勝1敗",
+    "detail": "1回戦シード、準々決勝 あぐのむに敗退"
+   }
+  },
+  {
+   "player": "折り紙",
+   "vision_slug": "origami",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "0勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "空白",
+   "vision_slug": "kuhaku",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "0勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "もっちゃま",
+   "vision_slug": "mochama",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Terarina",
+   "vision_slug": "terarina",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [
+    {
+     "event": "OCS 2026 November（11月7〜15日）",
+     "result": "3位タイ",
+     "kind": "third",
+     "url": "https://ocs.shadowverse-wb.com/ja/2026/november/results/"
+    }
+   ],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "ぱんさく",
+   "vision_slug": "pansaku",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "0勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "だーよね",
+   "vision_slug": "dayone",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 Mishadow51に敗退"
+   }
+  },
+  {
+   "player": "智念せいら",
+   "vision_slug": "seirachinen",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Hirobosu",
+   "vision_slug": "hirobosu",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "5勝1敗",
+    "detail": "1回戦 ねぎまに敗退"
+   }
+  },
+  {
+   "player": "MingiGod",
+   "vision_slug": "mingigod",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "1勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "あぐのむ",
+   "vision_slug": "agunomu",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "win",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 Winter、準々決勝 TBT、準決勝 ヘイム、決勝 ユーリに勝利"
+   }
+  },
+  {
+   "player": "ふぇぐ",
+   "vision_slug": "feg",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "0勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "ねぎま",
+   "vision_slug": "negima",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top8",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 Hirobosuに勝利、準々決勝 かなでに敗退"
+   }
+  },
+  {
+   "player": "monakawan",
+   "vision_slug": "monakawan",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 2,
+    "account": "https://note.com/crisp_robin8169",
+    "articles": [
+     {
+      "title": "第9節後半ランプドラゴンVS海賊ロイヤル完全解説",
+      "date": "10月下旬ごろ",
+      "url": "https://note.com/crisp_robin8169/n/n4b3033183969"
+     },
+     {
+      "title": "ラピッドハットでもわかるランプドラゴン",
+      "date": "11月上旬ごろ",
+      "url": "https://note.com/crisp_robin8169"
+     }
+    ]
+   },
+   "wgp_qualifier": {
+    "result": "w3",
+    "swiss": "3勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "山田レクイエム",
+   "vision_slug": "ymdrequiem",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "",
+    "swiss": "2勝3敗",
+    "detail": ""
+   }
+  },
+  {
+   "player": "Winter",
+   "vision_slug": "winter",
+   "send": "youtube",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top16",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 あぐのむに敗退"
+   }
+  },
+  {
+   "player": "Mishadow51",
+   "vision_slug": "mishadow51",
+   "send": "none",
+   "awards": [],
+   "tournaments": [],
+   "note": {
+    "score": 0,
+    "account": "",
+    "articles": []
+   },
+   "wgp_qualifier": {
+    "result": "top8",
+    "swiss": "4勝2敗",
+    "detail": "1回戦 だーよねに勝利、準々決勝 ヘイムに敗退"
+   }
+  }
+ ]
+}
