@@ -20,7 +20,7 @@
     "team_tag": "CR",
     "player_name": "Winter",
     "x_handle": "msfsv",
-    "value": 3299,
+    "value": 3300,
     "via": "fxtwitter"
   },
   {
@@ -60,7 +60,7 @@
     "team_tag": "ZETA",
     "player_name": "TBT",
     "x_handle": "tabe_tter",
-    "value": 3313,
+    "value": 3314,
     "via": "fxtwitter"
   },
   {
@@ -68,7 +68,7 @@
     "team_tag": "ZETA",
     "player_name": "ねぎま",
     "x_handle": "leek2060",
-    "value": 3703,
+    "value": 3704,
     "via": "fxtwitter"
   },
   {
@@ -156,7 +156,7 @@
     "team_tag": "MRG",
     "player_name": "Toby",
     "x_handle": "toby_24ss",
-    "value": 20204,
+    "value": 20205,
     "via": "fxtwitter"
   },
   {
@@ -242,6 +242,14 @@
   {
     "date": "2026-11-17",
     "team_tag": "RDL",
+    "player_name": "ぱんさく",
+    "x_handle": "sakura_hf_",
+    "value": 1427,
+    "via": "fxtwitter"
+  },
+  {
+    "date": "2026-11-17",
+    "team_tag": "RDL",
     "player_name": "Stylish_deko",
     "x_handle": "Stylish_deko",
     "value": 2095,
@@ -253,6 +261,14 @@
     "player_name": "Era53",
     "x_handle": "garbage_er",
     "value": 13177,
+    "via": "fxtwitter"
+  },
+  {
+    "date": "2026-11-17",
+    "team_tag": "LVH",
+    "player_name": "rikka",
+    "x_handle": "karakuri1646",
+    "value": 14172,
     "via": "fxtwitter"
   },
   {
@@ -276,23 +292,7 @@
     "team_tag": "LVH",
     "player_name": "智念せいら",
     "x_handle": "seira_chinen",
-    "value": 16609,
-    "via": "fxtwitter"
-  },
-  {
-    "date": "2026-11-17",
-    "team_tag": "RDL",
-    "player_name": "ぱんさく",
-    "x_handle": "sakura_hf_",
-    "value": 1427,
-    "via": "fxtwitter"
-  },
-  {
-    "date": "2026-11-17",
-    "team_tag": "LVH",
-    "player_name": "rikka",
-    "x_handle": "karakuri1646",
-    "value": 14172,
+    "value": 16610,
     "via": "fxtwitter"
   }
 ]

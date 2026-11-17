@@ -27,15 +27,15 @@
         "new": 0
       },
       "ヘイム": {
-        "listed": 29,
+        "listed": 30,
         "new": 1
       },
       "TBT": {
         "listed": 30,
-        "new": 1
+        "new": 0
       },
       "ねぎま": {
-        "listed": 29,
+        "listed": 30,
         "new": 1
       },
       "ミル": {
@@ -44,7 +44,7 @@
       },
       "ユーリ": {
         "listed": 29,
-        "new": 1
+        "new": 0
       },
       "かなで": {
         "listed": 30,
@@ -68,7 +68,7 @@
       },
       "まっつ": {
         "listed": 30,
-        "new": 1
+        "new": 0
       },
       "マイト": {
         "listed": 30,
@@ -88,7 +88,7 @@
       },
       "もっちゃま": {
         "listed": 29,
-        "new": 1
+        "new": 0
       },
       "あぐのむ": {
         "listed": 30,
@@ -108,11 +108,11 @@
       },
       "つきあかめん": {
         "listed": 30,
-        "new": 1
+        "new": 0
       },
       "折り紙": {
         "listed": 30,
-        "new": 2
+        "new": 0
       },
       "山田レクイエム": {
         "listed": 2,
@@ -147,10 +147,10 @@
         "new": 0
       }
     },
-    "watch_fetched": 116,
+    "watch_fetched": 4,
     "watch_failed": {},
     "via": "api",
     "left_pending": 0,
-    "total": 4723
+    "total": 4725
   }
 ]
