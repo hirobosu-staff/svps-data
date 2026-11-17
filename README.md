@@ -384,7 +384,7 @@ python scrape_svlabo_battle_details.py \
 ## 貢献度について（build_contribution.py / contribution_manual.json / scrape_uploads.py）
 
 貢献度は、公開時（Pages のビルド）に `scripts/build_contribution.py` が毎日計算し直し、`data/contribution.json`
-（公開用の出力先だけに置く）を作ります。計算式と配点は、元の配点シミュレーターの案Aと同じです。
+（公開用の出力先だけに置く）を作ります。計算式は元の配点シミュレーターの案Aと同じです。配点も案Aと同じですが、投稿動画だけは4点から2点に下げています（2026-11-17）。
 2026-11-17 までは第10節終了時点の値を `site/contribution.js` に直接書いていました。
 
 | 項目 | 元データ | 更新 |
