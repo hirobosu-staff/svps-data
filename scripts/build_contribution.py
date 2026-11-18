@@ -10,7 +10,9 @@
     競技          … data/match_results.csv の個人戦（バトル1〜3）の勝敗
     配信（ライブ） … data/streams.json のライブ配信。live_from（8月3日）から最新までの合計再生数と1本あたり中央値
     配信（投稿動画）… data/uploads.json（scrape_uploads.py）のレギュラーシーズン中の投稿動画の合計再生数。
-                     無い場合は history.csv に残っている shadowverse-reference.com の値（11月4日）を使う
+                     ショート動画は別の項目（合計再生数、配点 VS）として分けて採点する（2026-11-18〜）。
+                     uploads.json の古い行に is_short が無いときは、長さ180秒以下をショートとみなす。
+                     uploads.json が無い場合は history.csv に残っている shadowverse-reference.com の値（11月4日）を使う
     ランクマッチ   … data/svlabo_leaderboards.csv で、ladder_from_period 以降の各期間・各クラスの100位以内に入った回数
 手入力の項目（data/contribution_manual.json）:
     表彰・大会結果・note・WGP予選、配点、Twitchのみの選手の配信の推計値、Vision の選手ページのスラッグ
@@ -103,9 +105,18 @@ def build(live_to=None, max_section=None, ladder_to_period=None, uploads_from_re
     uploads_doc = None if uploads_from_reference else _read_json("uploads.json")
     up_by_channel = None
     if uploads_doc:
-        up_by_channel = defaultdict(int)
+        up_by_channel = defaultdict(lambda: {"up": 0, "un": 0, "sh": 0, "sn": 0})
         for v in uploads_doc.get("videos", []):
-            up_by_channel[v["channel_id"]] += v.get("view_count") or 0
+            short = v.get("is_short")
+            if short is None:
+                short = (v.get("duration_sec") or 10 ** 9) <= 180
+            agg = up_by_channel[v["channel_id"]]
+            if short:
+                agg["sh"] += v.get("view_count") or 0
+                agg["sn"] += 1
+            else:
+                agg["up"] += v.get("view_count") or 0
+                agg["un"] += 1
         fetched = set(uploads_doc.get("channels", {}))
     ref_up = {}
     for r in _read_csv("history.csv"):
@@ -155,9 +166,9 @@ def build(live_to=None, max_section=None, ladder_to_period=None, uploads_from_re
         w, l = wl[name]
         views = live.get(cid, []) if send == "youtube" else []
         if send == "youtube" and up_by_channel is not None and cid in fetched:
-            up, up_src = up_by_channel.get(cid, 0), "youtube"
+            agg, up_src = up_by_channel[cid], "youtube"
         else:
-            up, up_src = (ref_up.get(name, (None, 0))[1], "reference")
+            agg, up_src = {"up": ref_up.get(name, (None, 0))[1], "un": 0, "sh": 0, "sn": 0}, "reference"
         entries = []
         for key in {_norm(name), *[_norm(a) for a in aliases.get(name, [])]}:
             entries += ladder.get(key, [])
@@ -173,7 +184,7 @@ def build(live_to=None, max_section=None, ladder_to_period=None, uploads_from_re
             "s": None if send == "none" else (e.get("est35") if send == "twitch_est" else 0),
             "est": send == "twitch_est", "wt": e.get("watch_hours", 0),
             "ls": sum(views), "ln": len(views), "lm": statistics.median(views) if views else 0,
-            "up": int(up), "up_src": up_src,
+            "up": int(agg["up"]), "un": agg["un"], "sh": int(agg["sh"]), "sn": agg["sn"], "up_src": up_src,
             "pr": sum(1 for a in awards if a["kind"] == "P"), "bb": sum(1 for a in awards if a["kind"] == "B"),
             "aw": [[a["name"], a["event"], a["kind"]] for a in awards],
             "tour": [t["kind"] for t in tours], "tr": [[t["event"], t["result"], t["kind"], t["url"]] for t in tours],
@@ -190,6 +201,7 @@ def build(live_to=None, max_section=None, ladder_to_period=None, uploads_from_re
         "tmax": max((r["ls"] for r in yt), default=0) or 1,
         "mmax": max((r["lm"] for r in yt), default=0) or 1,
         "umax": max((r["up"] for r in yt), default=0) or 1,
+        "smax": max((r["sh"] for r in yt), default=0) or 1,
         "a": est["a"], "b": est["b"], "n": est["n"],
         "ladmax": max((r["lad"] for r in rows), default=0) or 1,
     }

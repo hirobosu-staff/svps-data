@@ -171,7 +171,8 @@ function hexToRgba(hex, alpha) {
 const STREAM_TABLE_PERIODS = [
   { id: "30", label: "直近30日" },
   { id: "90", label: "直近90日" },
-  { id: "all", label: "取得した全期間" },
+  { id: "since202606", label: "2026年6月〜" },  // 選手詳細の配信分析の初期表示と同じ期間
+  { id: "all", label: "全期間（選手ごとに取得開始が違う）" },
 ];
 let tablePeriod = "30";
 

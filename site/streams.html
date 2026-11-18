@@ -30,53 +30,143 @@
 <script src="common.js"></script>
 <script>
 // 配信ランキング。日本時間の月ごとに、PS出場選手の YouTube ライブアーカイブを再生数の多い順に並べる。
-// 公開時は scripts/build_site_data.py が作る data/stream_ranking.json（月ごとの上位50本だけ）を読む。
-// 無いとき（手元で site/ をそのまま開いたときなど）は data/streams.json から同じ計算をする。
+// 上から「チームランキング」（チームごとの合計再生数など）、選んだチームの選手別の集計、配信ごとの上位50本。
+// 公開時は scripts/build_site_data.py が作る data/stream_ranking.json（2026年6月以降の全配信）を読み、
+// 月・チームごとの集計はここでする。無いとき（手元で site/ をそのまま開いたときなど）は data/streams.json から作る。
 const STREAM_RANKING_URL = "data/stream_ranking.json";
 const RANKING_TOP_N = 50;
 const RANKING_FROM_MONTH = "2026-06"; // build_site_data.py の RANKING_FROM_MONTH と合わせる
+const ALL_MONTHS = "all";
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
 function jst(iso) { return new Date(new Date(iso).getTime() + 9 * 3600 * 1000); }
 function monthKey(iso) { return jst(iso).toISOString().slice(0, 7); }
-function monthLabel(key) { return `${key.slice(0, 4)}年${Number(key.slice(5, 7))}月`; }
+function monthLabel(key) { return key === ALL_MONTHS ? "2026年6月〜（通算）" : `${key.slice(0, 4)}年${Number(key.slice(5, 7))}月`; }
 function hm(sec) {
   if (sec == null) return "-";
   const t = Math.round(sec / 60), h = Math.floor(t / 60), m = t % 60;
   return h ? `${h}時間${String(m).padStart(2, "0")}分` : `${m}分`;
 }
+function hours(sec) { return `${(sec / 3600).toLocaleString("ja-JP", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h`; }
 function mdLabel(dateStr) { return dateStr ? `${Number(dateStr.slice(5, 7))}/${Number(dateStr.slice(8, 10))}` : "-"; }
 
-async function loadRanking() {
+let ALL = [], TEAMS = [], ROSTER = [], UPDATED = "";
+const state = { month: "", team: "", teamSort: { key: "views", desc: true } };
+
+async function loadStreamsForRanking() {
   try {
     const resp = await fetch(STREAM_RANKING_URL);
-    if (resp.ok) return await resp.json();
-  } catch (e) { /* 下の streams.json で計算する */ }
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data.streams)) return data;
+    }
+  } catch (e) { /* 下の streams.json で作る */ }
   const resp = await fetch("data/streams.json");
   if (!resp.ok) throw new Error(`data/streams.json: HTTP ${resp.status}`);
   const data = await resp.json();
-  const months = {};
-  (data.streams || []).filter(s => s.status === "ok" && s.start_at).forEach(s => {
-    const key = monthKey(s.start_at);
-    if (key < RANKING_FROM_MONTH) return;
-    const m = months[key] || (months[key] = { count: 0, with_views: 0, all: [] });
-    m.count++;
-    if (s.view_count != null) { m.with_views++; m.all.push(s); }
-  });
-  Object.values(months).forEach(m => {
-    m.top = m.all.sort((a, b) => b.view_count - a.view_count || (a.start_at < b.start_at ? -1 : 1)).slice(0, RANKING_TOP_N);
-    delete m.all;
-  });
-  return { updated: data.updated, top_n: RANKING_TOP_N, months };
+  return {
+    updated: data.updated,
+    streams: (data.streams || []).filter(s => s.status === "ok" && s.start_at && monthKey(s.start_at) >= RANKING_FROM_MONTH),
+  };
 }
 
-function rankingTableHTML(m) {
-  if (!m || !m.top.length) return stateHTML("empty", "この月の配信はありません");
+// チームの並び順と正式名、所属選手（players.csv）。読めなければ配信データのチーム名だけで並べる。
+async function loadRoster() {
+  try {
+    const resp = await fetch(PLAYERS_URL);
+    if (resp.ok) return parseCSV(await resp.text());
+  } catch (e) { /* 下で配信データから作る */ }
+  return [];
+}
+
+function scoped() {
+  return ALL.filter(s => state.month === ALL_MONTHS || monthKey(s.start_at) === state.month);
+}
+
+// 配信のまとまり（チーム・選手）の集計。再生数の合計と平均は、再生数が取れた配信だけで出す。
+function summarize(list) {
+  const withViews = list.filter(s => s.view_count != null);
+  const views = withViews.reduce((a, s) => a + s.view_count, 0);
+  return {
+    count: list.length, withViews: withViews.length, views,
+    sec: list.reduce((a, s) => a + (s.duration_sec || 0), 0),
+    avg: withViews.length ? views / withViews.length : null,
+    top: withViews.slice().sort((a, b) => b.view_count - a.view_count)[0] || null,
+  };
+}
+
+const TEAM_COLUMNS = [
+  { key: "views", label: "合計再生数", value: t => t.views, fmt: t => fmtNum(t.views) },
+  { key: "count", label: "配信本数", value: t => t.count, fmt: t => `${t.count}本` },
+  { key: "sec", label: "配信時間", value: t => t.sec, fmt: t => hours(t.sec) },
+  { key: "avg", label: "平均再生数", value: t => t.avg ?? -1, fmt: t => t.avg == null ? "-" : fmtNum(Math.round(t.avg)) },
+];
+
+function teamRankingHTML(list) {
+  const rows = TEAMS.map(t => {
+    const mine = list.filter(s => s.team_tag === t.tag);
+    const sum = summarize(mine);
+    // チーム内で合計再生数が最も多い選手
+    const byPlayer = {};
+    mine.forEach(s => { if (s.view_count != null) byPlayer[s.player_name] = (byPlayer[s.player_name] || 0) + s.view_count; });
+    const best = Object.entries(byPlayer).sort((a, b) => b[1] - a[1])[0];
+    return { ...t, ...sum, best };
+  });
+  const col = TEAM_COLUMNS.find(c => c.key === state.teamSort.key);
+  rows.sort((a, b) => (col.value(b) - col.value(a)) * (state.teamSort.desc ? 1 : -1));
+  assignCompetitionRanks(rows, r => col.value(r));
+  const th = TEAM_COLUMNS.map(c => {
+    const on = c.key === state.teamSort.key;
+    return `<th class="num sortable ${on ? "active" : ""}" data-sort="${c.key}">${c.label}<span class="sort-arrow">${on ? (state.teamSort.desc ? "▼" : "▲") : "▼"}</span></th>`;
+  }).join("");
+  return `<div class="table-scroll"><table class="rank-table stream-team">
+    <thead><tr><th class="num">順位</th><th>チーム</th>${th}<th class="stream-team__best">合計再生数が最も多い選手</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr class="${state.team === r.tag ? "is-selected" : ""}">
+        <td class="num stream-rank__pos">${r.rank}</td>
+        <td class="stream-team__name"><button type="button" class="stream-team__pick" data-team="${escapeAttr(r.tag)}">${teamLogoHTML(r.tag, 20)}<span>${escapeAttr(r.name)}</span></button></td>
+        ${TEAM_COLUMNS.map(c => `<td class="num ${c.key === "views" ? "stream-rank__views" : ""}">${c.fmt(r)}</td>`).join("")}
+        <td class="stream-team__best">${r.best ? `<a href="player.html?name=${encodeURIComponent(r.best[0])}#streamAnalysis">${escapeAttr(r.best[0])}</a>（${fmtNum(r.best[1])}）` : "-"}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+}
+
+function chipsHTML() {
+  const btn = (tag, label, color) => {
+    const on = state.team === tag;
+    return `<button type="button" class="team-select-btn ${on ? "active" : ""}" data-team="${escapeAttr(tag)}"
+      style="${on ? `background:${color};color:#fff;border-color:transparent;` : ""}">${tag ? teamLogoHTML(tag, 18) : ""}<span>${label}</span></button>`;
+  };
+  return `<div class="team-select-row">${btn("", "すべて", "var(--accent)")}${TEAMS.map(t => btn(t.tag, t.tag, TEAM_COLORS[t.tag] || "#888")).join("")}</div>`;
+}
+
+// チームを選んでいるときの、所属選手ごとの集計
+function membersHTML(list) {
+  const team = TEAMS.find(t => t.tag === state.team);
+  const names = ROSTER.filter(p => p.team_tag === state.team).map(p => p.player_name);
+  list.filter(s => s.team_tag === state.team && !names.includes(s.player_name)).forEach(s => names.push(s.player_name));
+  const rows = names.map(n => ({ name: n, ...summarize(list.filter(s => s.player_name === n)) }))
+    .sort((a, b) => b.views - a.views || b.count - a.count);
+  return `<h3 class="stream-rank__sub">${escapeAttr(team ? team.name : state.team)}の選手別</h3>
+    <div class="table-scroll"><table class="rank-table stream-team">
+    <thead><tr><th>選手</th><th class="num">合計再生数</th><th class="num">配信本数</th><th class="num">配信時間</th><th class="num">平均再生数</th><th class="stream-team__best">最も再生された配信</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr>
+        <td class="stream-team__member"><a class="player-link" href="player.html?name=${encodeURIComponent(r.name)}#streamAnalysis">${escapeAttr(r.name)}</a></td>
+        <td class="num stream-rank__views">${r.count ? fmtNum(r.views) : "-"}</td>
+        <td class="num">${r.count}本</td>
+        <td class="num">${r.count ? hours(r.sec) : "-"}</td>
+        <td class="num">${r.avg == null ? "-" : fmtNum(Math.round(r.avg))}</td>
+        <td class="stream-team__best">${r.top ? `<a class="stream-rank__title" href="https://www.youtube.com/watch?v=${encodeURIComponent(r.top.video_id)}" target="_blank" rel="noopener">${escapeAttr(r.top.title.length > 40 ? r.top.title.slice(0, 40) + "…" : r.top.title)}</a>（${fmtNum(r.top.view_count)}）` : "-"}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+}
+
+function rankingTableHTML(top) {
+  if (!top.length) return stateHTML("empty", "この条件の配信はありません");
   return `<div class="table-scroll"><table class="rank-table stream-rank">
     <thead><tr><th class="num">順位</th><th>選手</th><th>配信</th><th class="num">再生数</th><th class="num">取得日</th></tr></thead>
-    <tbody>${m.top.map((s, i) => {
+    <tbody>${top.map((s, i) => {
       const d = jst(s.start_at);
-      const when = `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]}) ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}開始・${hm(s.duration_sec)}`;
+      const when = `${state.month === ALL_MONTHS ? `${d.getUTCFullYear()}/` : ""}${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]}) ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}開始・${hm(s.duration_sec)}`;
       const playerLink = size => `<a href="player.html?name=${encodeURIComponent(s.player_name)}#streamAnalysis">${teamLogoHTML(s.team_tag, size)}<span>${escapeAttr(s.player_name)}</span></a>`;
       // スマホでは「選手」「取得日」の列を隠し、同じ内容をタイトルの下に出す（stream-rank__sp。PCでは非表示）
       return `<tr>
@@ -91,46 +181,80 @@ function rankingTableHTML(m) {
     }).join("")}</tbody></table></div>`;
 }
 
+function draw() {
+  const list = scoped();
+  document.getElementById("teamRanking").innerHTML = teamRankingHTML(list);
+  document.getElementById("teamChips").innerHTML = chipsHTML();
+  document.getElementById("members").innerHTML = state.team ? membersHTML(list) : "";
+  const mine = state.team ? list.filter(s => s.team_tag === state.team) : list;
+  const withViews = mine.filter(s => s.view_count != null)
+    .sort((a, b) => b.view_count - a.view_count || (a.start_at < b.start_at ? -1 : 1));
+  const top = withViews.slice(0, RANKING_TOP_N);
+  const team = TEAMS.find(t => t.tag === state.team);
+  document.getElementById("rankSummary").textContent =
+    `${monthLabel(state.month)}の${team ? team.name + "の" : ""}配信${mine.length}本のうち、再生数を取得できた${withViews.length}本の上位${top.length}本`;
+  document.getElementById("rankBody").innerHTML = rankingTableHTML(top);
+
+  document.querySelectorAll("#teamRanking th[data-sort]").forEach(th => th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    state.teamSort = { key, desc: state.teamSort.key === key ? !state.teamSort.desc : true };
+    draw();
+  }));
+  document.querySelectorAll("#teamRanking .stream-team__pick, #teamChips button").forEach(b => b.addEventListener("click", () => {
+    state.team = state.team === b.dataset.team && b.closest("#teamRanking") ? "" : b.dataset.team;
+    syncUrl(); draw();
+  }));
+}
+
+function syncUrl() {
+  const url = new URL(location.href);
+  url.searchParams.set("month", state.month);
+  if (state.team) url.searchParams.set("team", state.team); else url.searchParams.delete("team");
+  history.replaceState(null, "", url);
+}
+
 async function boot() {
   const app = document.getElementById("app");
   let data;
   try {
-    data = await loadRanking();
+    [data, ROSTER] = await Promise.all([loadStreamsForRanking(), loadRoster()]);
   } catch (err) {
     app.innerHTML = loadErrorHTML(err);
     return;
   }
-  const keys = Object.keys(data.months || {}).sort().reverse();
-  if (!keys.length) {
+  ALL = data.streams;
+  UPDATED = data.updated || "";
+  if (!ALL.length) {
     app.innerHTML = stateHTML("empty", "配信のデータはまだありません");
     return;
   }
-  const topN = data.top_n || RANKING_TOP_N;
-  const param = new URLSearchParams(location.search).get("month");
+  ROSTER.forEach(p => { if (!TEAMS.find(t => t.tag === p.team_tag)) TEAMS.push({ tag: p.team_tag, name: p.team_name }); });
+  ALL.forEach(s => { if (s.team_tag && !TEAMS.find(t => t.tag === s.team_tag)) TEAMS.push({ tag: s.team_tag, name: s.team_tag }); });
+
+  const months = [...new Set(ALL.map(s => monthKey(s.start_at)))].sort().reverse();
+  const params = new URLSearchParams(location.search);
+  state.month = [...months, ALL_MONTHS].includes(params.get("month")) ? params.get("month") : months[0];
+  state.team = TEAMS.some(t => t.tag === params.get("team")) ? params.get("team") : "";
+
   app.innerHTML = `
     <div class="control-row">
       <div class="control-group">
         <label for="rankMonth">月</label>
-        <select id="rankMonth">${keys.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join("")}</select>
+        <select id="rankMonth">${months.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join("")}<option value="${ALL_MONTHS}">${monthLabel(ALL_MONTHS)}</option></select>
       </div>
-      <div class="stream-note" id="rankSummary"></div>
     </div>
+    <h2 class="stream-rank__h">チームランキング</h2>
+    <div id="teamRanking"></div>
+    <p class="stream-note">チーム名を押すと、下にそのチームの選手別の集計と配信の上位を出します。見出しを押すと並び替えます。</p>
+    <h2 class="stream-rank__h">配信ランキング</h2>
+    <div id="teamChips"></div>
+    <div id="members"></div>
+    <div class="stream-note stream-rank__summary" id="rankSummary"></div>
     <div id="rankBody"></div>
-    <p class="stream-note stream-rank__note">PS出場選手の YouTube ライブアーカイブが対象です（メンバー限定配信と Twitch は含みません）。月は配信を始めた日（日本時間）で分けています。再生数は配信開始から14日間は毎日取り直し、その後は最後に取った値のままです。取得日はその再生数を取った日です。配信データの最終更新は ${escapeAttr(data.updated || "-")} です。</p>`;
+    <p class="stream-note stream-rank__note">PS出場選手の YouTube ライブアーカイブが対象です（メンバー限定配信と Twitch は含みません）。月は配信を始めた日（日本時間）で分けています。再生数は配信開始から14日間は毎日取り直し、その後は最後に取った値のままです。取得日はその再生数を取った日です。配信データの最終更新は ${escapeAttr(UPDATED || "-")} です。</p>`;
   const sel = document.getElementById("rankMonth");
-  sel.value = keys.includes(param) ? param : keys[0];
-  function draw() {
-    const m = data.months[sel.value];
-    document.getElementById("rankSummary").textContent =
-      `${monthLabel(sel.value)}の配信${m.count}本のうち、再生数を取得できた${m.with_views}本の上位${Math.min(topN, m.with_views)}本`;
-    document.getElementById("rankBody").innerHTML = rankingTableHTML(m);
-  }
-  sel.addEventListener("change", () => {
-    const url = new URL(location.href);
-    url.searchParams.set("month", sel.value);
-    history.replaceState(null, "", url);
-    draw();
-  });
+  sel.value = state.month;
+  sel.addEventListener("change", () => { state.month = sel.value; syncUrl(); draw(); });
   draw();
 }
 

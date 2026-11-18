@@ -9,9 +9,11 @@ shadowverse-reference.com の「レギュラーシーズンの再生回数」を
        （50チャンネルまで1回・1ユニット）。
     2. playlistItems.list で、そのリストを新しい順に読み、レギュラーシーズン開始日
        （schedule.csv の最初の日付）より前の動画が出てきたらやめる（1ページ50本・1ユニット）。
-    3. videos.list（part=snippet,contentDetails,statistics,liveStreamingDetails）で
+    3. videos.list（part=snippet,contentDetails,statistics,liveStreamingDetails,player）で
        再生数を取る（50本ずつ・1ユニット）。liveStreamingDetails がある動画（ライブ配信の
        アーカイブとプレミア公開）は「投稿動画」に含めない（ライブ配信は streams.json 側で数える）。
+       ショート動画（is_short）は、長さ180秒以下で、かつ埋め込みプレーヤーが縦長（player の
+       embedHeight > embedWidth）のもの。貢献度では通常の動画と分けて採点する（2026-11-18〜）。
     1日の消費は100ユニット前後（上限は1日1万）。
 
 毎日、対象期間の全動画を取り直す（再生数は伸び続けるため）。取得に失敗したチャンネルは
@@ -21,7 +23,7 @@ shadowverse-reference.com の「レギュラーシーズンの再生回数」を
     {"updated": "YYYY-MM-DD", "since": "YYYY-MM-DD",
      "channels": {channel_id: {"player_name", "videos", "views", "fetched"}},
      "videos": [ {video_id, channel_id, team_tag, player_name, title, published_at,
-                  duration_sec, view_count, views_at}, ... ]}
+                  duration_sec, is_short, view_count, views_at}, ... ]}
 """
 import csv
 import json
@@ -39,6 +41,7 @@ UPLOADS_JSON = os.path.join(DATA_DIR, "uploads.json")
 SCHEDULE_CSV = os.path.join(DATA_DIR, "schedule.csv")
 API = "https://www.googleapis.com/youtube/v3/"
 DEFAULT_SINCE = "2026-07-11"   # schedule.csv が読めないときのレギュラーシーズン開始日
+SHORT_MAX_SEC = 180            # YouTube のショートは最長3分
 MAX_PAGES = 20                 # 1チャンネルで読む再生リストのページ数の上限（50本 × 20）
 ISO_DURATION_RE = re.compile(r"^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
 
@@ -113,8 +116,9 @@ def list_video_ids(playlist_id, since_utc, api_key):
 def video_details(video_ids, api_key):
     out = {}
     for i in range(0, len(video_ids), 50):
-        data = api_get("videos", {"part": "snippet,contentDetails,statistics,liveStreamingDetails",
-                                  "id": ",".join(video_ids[i:i + 50]), "maxResults": 50}, api_key)
+        # maxHeight を付けると player.embedWidth / embedHeight が返り、縦長（ショート）かどうか分かる
+        data = api_get("videos", {"part": "snippet,contentDetails,statistics,liveStreamingDetails,player",
+                                  "id": ",".join(video_ids[i:i + 50]), "maxResults": 50, "maxHeight": 640}, api_key)
         for it in data.get("items", []):
             out[it["id"]] = it
     return out
@@ -163,10 +167,17 @@ def main():
                 continue  # 非公開・削除、またはライブ配信・プレミア公開
             sn, st = it.get("snippet") or {}, it.get("statistics") or {}
             views = st.get("viewCount")
+            duration = parse_iso_duration((it.get("contentDetails") or {}).get("duration"))
+            pl = it.get("player") or {}
+            try:
+                vertical = int(pl.get("embedHeight")) > int(pl.get("embedWidth"))
+            except (TypeError, ValueError):
+                vertical = None  # 縦横が分からないときは長さだけで判定する
+            is_short = duration is not None and duration <= SHORT_MAX_SEC and vertical is not False
             mine.append({
                 "video_id": vid, "channel_id": cid, "team_tag": p["team_tag"], "player_name": p["player_name"],
                 "title": sn.get("title") or "", "published_at": sn.get("publishedAt"),
-                "duration_sec": parse_iso_duration((it.get("contentDetails") or {}).get("duration")),
+                "duration_sec": duration, "is_short": is_short,
                 "view_count": int(views) if views and str(views).isdigit() else None,
                 "views_at": date_str,
             })

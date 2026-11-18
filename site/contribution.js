@@ -15,6 +15,7 @@
     }
     return loading;
   }
+  const VS = () => W.VS || 0;  // ショート動画の配点（無ければ0）
   // "2026-11-04" を「11月4日」にする
   const md = iso => iso ? `${Number(iso.slice(5, 7))}月${Number(iso.slice(8, 10))}日` : "";
   const WQKEY = { win: "Q1", second: "Q2", top4: "Q4", top8: "Q8", top16: "Q16", w3: "Q3" };
@@ -22,7 +23,7 @@
   const TOUR_LABEL = { win: "優勝", second: "準優勝", third: "3位", top8: "ベスト8" };
   const ABBR = { "Crazy Raccoon": "CR", "ZETA DIVISION": "ZETA", "DetonatioN FocusMe": "DFM", "VARREL": "VARREL", "MURASH GAMING": "MRG", "REJECT": "REJECT", "RIDDLE ORDER": "RIDDLE", "レバンガ北海道": "LVH" };
   const COL = { comp: "#2A78D6", send: "#EB6834", note: "#8B5CC9", award: "#1BAF7A", bonus: "#0D366B", wgpq: "#D19A12", lad: "#D55181", muted: "#C9C8C2", ink: "#1F1E1D", sub: "#6B6A66" };
-  const LEGEND = [["競技", COL.comp, 250], ["配信", COL.send, 304], ["note", COL.note, 358], ["表彰", COL.award, 414], ["大会加点", COL.bonus, 468], ["WGP予選", COL.wgpq, 546], ["ランクマッチ", COL.lad, 630]];
+  const LEGEND = [["PS", COL.comp, 250], ["配信", COL.send, 296], ["note", COL.note, 358], ["表彰", COL.award, 414], ["大会加点", COL.bonus, 468], ["WGP予選", COL.wgpq, 546], ["ランクマッチ", COL.lad, 630]];
 
   const fmt = (v, d = 0) => Number(v).toLocaleString("ja-JP", { minimumFractionDigits: d, maximumFractionDigits: d });
   // 小数第1位への丸め（偶数丸め。集計時と同じ丸め方）
@@ -33,10 +34,12 @@
 
   function sendParts(r) {
     if (r.s === null) return null;
-    if (r.est) { const t = r.s / 35 * (W.LT + W.LM + W.V); return { live: t, video: 0, total: t }; }
+    if (r.est) { const t = r.s / 35 * (W.LT + W.LM + W.V + VS()); return { live: t, video: 0, short: 0, total: t }; }
     const live = lg(r.ls, K.tmax) * W.LT + lg(r.lm, K.mmax) * W.LM;
     const video = lg(r.up, K.umax) * W.V;
-    return { live, video, total: live + video };
+    // ショート動画は通常の投稿動画と分けて、ショートだけの合計再生数で比べる（2026-11-18〜）
+    const short = VS() ? lg(r.sh || 0, K.smax || 1) * VS() : 0;
+    return { live, video, short, total: live + video + short };
   }
   function parts(r) {
     const comp = r.c * W.C / 45;
@@ -49,7 +52,7 @@
     let send = 0, conv = 0, base;
     if (sp === null) {
       const denom = W.C + W.N + W.P + W.B;
-      base = (comp + note + award) * (W.C + W.LT + W.LM + W.V + W.N + W.P + W.B) / denom;
+      base = (comp + note + award) * (W.C + W.LT + W.LM + W.V + VS() + W.N + W.P + W.B) / denom;
       conv = base - comp - note - award;
     } else {
       send = sp.total;
@@ -145,19 +148,20 @@
     const x = parts(r);
     const rows = [];
     const raw = r.w + r.l === 0 ? 0 : 3 * r.w + 10 * (r.w + 2.5) / (r.w + r.l + 5);
-    rows.push(`<tr><td class="item">競技</td><td>選手戦（バトル1〜3）${r.w}勝${r.l}敗</td><td class="f">${
+    rows.push(`<tr><td class="item">PS</td><td>選手戦（バトル1〜3）${r.w}勝${r.l}敗</td><td class="f">${
       r.w + r.l === 0 ? "出場なしのため0点" :
       `素点 = 3 × ${r.w} ＋ 10 × (${r.w} ＋ 2.5) ÷ (${r.w} ＋ ${r.l} ＋ 5) = ${fmt(raw, 2)}<br>点数 = ${fmt(raw, 2)} ÷ ${K.cmax}（全選手の最高素点） × ${W.C} = ${fmt(x.comp, 2)}`}</td><td class="num">${fmt(x.comp, 2)}</td></tr>`);
     if (r.s === null) {
-      rows.push(`<tr><td class="item">配信</td><td>主な配信先がBilibiliのため、再生数を取得できません</td><td class="f">配信は0点とせず、それ以外の項目の合計を全体の満点に換算します。<br>換算後 = (競技 ＋ note ＋ 表彰) × (${W.C} ＋ ${W.LT} ＋ ${W.LM} ＋ ${W.V} ＋ ${W.N} ＋ ${W.P} ＋ ${W.B}) ÷ (${W.C} ＋ ${W.N} ＋ ${W.P} ＋ ${W.B})<br>換算による上乗せ分 = ${fmt(x.conv, 2)}</td><td class="num">${fmt(x.conv, 2)}</td></tr>`);
+      rows.push(`<tr><td class="item">配信</td><td>主な配信先がBilibiliのため、再生数を取得できません</td><td class="f">配信は0点とせず、それ以外の項目の合計を全体の満点に換算します。<br>換算後 = (PS ＋ note ＋ 表彰) × (${W.C} ＋ ${W.LT} ＋ ${W.LM} ＋ ${W.V} ＋ ${VS()} ＋ ${W.N} ＋ ${W.P} ＋ ${W.B}) ÷ (${W.C} ＋ ${W.N} ＋ ${W.P} ＋ ${W.B})<br>換算による上乗せ分 = ${fmt(x.conv, 2)}</td><td class="num">${fmt(x.conv, 2)}</td></tr>`);
     } else if (r.est) {
-      rows.push(`<tr><td class="item">配信</td><td>Twitchのみで配信しているため、YouTubeの再生数がありません。配信先を問わない視聴時間はシーズン中${fmt(r.wt)}時間です。</td><td class="f">再生数を取得できた${K.n}名で、視聴時間と配信点（35点満点）の関係を求めた式に当てはめています。<br>推計値 = −${fmt(-K.a, 2)} ＋ ${fmt(K.b, 3)} × log10(${fmt(r.wt)}) = ${fmt(r.s, 1)}（35点満点）<br>点数 = ${fmt(r.s, 1)} ÷ 35 × (${W.LT} ＋ ${W.LM} ＋ ${W.V}) = ${fmt(x.send, 2)}</td><td class="num">${fmt(x.send, 2)}</td></tr>`);
+      rows.push(`<tr><td class="item">配信</td><td>Twitchのみで配信しているため、YouTubeの再生数がありません。配信先を問わない視聴時間はシーズン中${fmt(r.wt)}時間です。</td><td class="f">再生数を取得できた${K.n}名で、視聴時間と配信点（35点満点）の関係を求めた式に当てはめています。<br>推計値 = −${fmt(-K.a, 2)} ＋ ${fmt(K.b, 3)} × log10(${fmt(r.wt)}) = ${fmt(r.s, 1)}（35点満点）<br>点数 = ${fmt(r.s, 1)} ÷ 35 × (${W.LT} ＋ ${W.LM} ＋ ${W.V} ＋ ${VS()}) = ${fmt(x.send, 2)}</td><td class="num">${fmt(x.send, 2)}</td></tr>`);
     } else {
       const a1 = W.LT * lg(r.ls, K.tmax), a2 = W.LM * lg(r.lm, K.mmax);
-      rows.push(`<tr><td class="item">配信</td><td colspan="2">YouTubeの再生数を3つの指標に分け、それぞれ全選手の最高値を満点として対数で比べます。1,000回未満は0点です。</td><td></td></tr>`);
+      rows.push(`<tr><td class="item">配信</td><td colspan="2">YouTubeの再生数を${VS() ? "4" : "3"}つの指標に分け、それぞれ全選手の最高値を満点として対数で比べます。1,000回未満は0点です。</td><td></td></tr>`);
       rows.push(`<tr><td class="item sub">ライブ合計</td><td>${md(META.live_from)}〜${md(META.live_to)}のライブ配信${r.ln}本、合計${fmt(r.ls)}回</td><td class="f">${W.LT} × log10(${fmt(r.ls)} ÷ 1,000) ÷ log10(${fmt(K.tmax)} ÷ 1,000) = ${fmt(a1, 2)}</td><td class="num">${fmt(a1, 2)}</td></tr>`);
       rows.push(`<tr><td class="item sub">1本あたり</td><td>同期間の1本あたり再生数の中央値 ${fmt(r.lm)}回</td><td class="f">${W.LM} × log10(${fmt(r.lm)} ÷ 1,000) ÷ log10(${fmt(K.mmax)} ÷ 1,000) = ${fmt(a2, 2)}</td><td class="num">${fmt(a2, 2)}</td></tr>`);
-      rows.push(`<tr><td class="item sub">投稿動画</td><td>${r.up_src === "youtube" ? `レギュラーシーズン中（${md(META.uploads_since)}〜）の投稿動画 合計${fmt(r.up)}回` : `レギュラーシーズン中の投稿動画 合計${fmt(r.up)}回（11月4日時点の値）`}</td><td class="f">${W.V} × log10(${fmt(r.up)} ÷ 1,000) ÷ log10(${fmt(K.umax)} ÷ 1,000) = ${fmt(x.sp.video, 2)}</td><td class="num">${fmt(x.sp.video, 2)}</td></tr>`);
+      rows.push(`<tr><td class="item sub">投稿動画</td><td>${r.up_src === "youtube" ? `レギュラーシーズン中（${md(META.uploads_since)}〜）の投稿動画（ショートを除く）${r.un}本 合計${fmt(r.up)}回` : `レギュラーシーズン中の投稿動画 合計${fmt(r.up)}回（11月4日時点の値）`}</td><td class="f">${W.V} × log10(${fmt(r.up)} ÷ 1,000) ÷ log10(${fmt(K.umax)} ÷ 1,000) = ${fmt(x.sp.video, 2)}</td><td class="num">${fmt(x.sp.video, 2)}</td></tr>`);
+      if (VS()) rows.push(`<tr><td class="item sub">ショート</td><td>${r.up_src === "youtube" ? `同期間のショート動画${r.sn}本 合計${fmt(r.sh)}回` : "取得前のため0点"}</td><td class="f">${VS()} × log10(${fmt(r.sh || 0)} ÷ 1,000) ÷ log10(${fmt(K.smax)} ÷ 1,000) = ${fmt(x.sp.short, 2)}</td><td class="num">${fmt(x.sp.short, 2)}</td></tr>`);
     }
     rows.push(`<tr><td class="item">note</td><td>${r.narts.length ? `7月以降の記事${r.narts.length}本<br>${r.narts.map(a => `<a href="${a[2]}" target="_blank" rel="noopener">${esc(a[0])}</a>（${esc(a[1])}）`).join("<br>")}` : "7月以降のnote記事は確認できませんでした"}</td><td class="f">${r.nt ? `評価 ${r.nt}点（3点満点）を配点に合わせて換算<br>${r.nt} ÷ 3 × ${W.N} = ${fmt(x.note, 2)}` : "0点"}</td><td class="num">${fmt(x.note, 2)}</td></tr>`);
     rows.push(`<tr><td class="item">表彰</td><td>${r.aw.length ? r.aw.map(a => `${esc(a[0])}（${esc(a[1])}）`).join("<br>") : "受賞なし"}</td><td class="f">${r.aw.length ? r.aw.map(a => `${esc(a[0])} ${a[2] === "P" ? W.P : W.B}点`).join("<br>") : "0点"}</td><td class="num">${fmt(x.award, 2)}</td></tr>`);
@@ -167,7 +171,7 @@
     const wqCalc = r.wq ? `${WQ_LABEL[r.wq]} ${W[WQKEY[r.wq]]}点` : `0点（決勝トーナメント進出 ${W.Q16}点、予選3勝 ${W.Q3}点に届かず）`;
     rows.push(`<tr><td class="item">WGP予選</td><td>${wqDesc}</td><td class="f">${r.wqs ? wqCalc : "0点"}</td><td class="num">${fmt(x.wq, 2)}</td></tr>`);
     rows.push(`<tr><td class="item">ランクマッチ補正</td><td>7月以降（${META.ladder_periods.map(esc).join("・")}）にクラス別トップ100へ入った回数 ${r.lad}回</td><td class="f">${W.L} × ${r.lad} ÷ ${K.ladmax}（最多回数） = ${fmt(x.lad, 1)}</td><td class="num">${fmt(x.lad, 1)}</td></tr>`);
-    rows.push(`<tr class="total"><td>合計</td><td colspan="2">競技・配信・note・表彰の合計を小数第1位で丸め、大会加点、WGP予選、ランクマッチ補正を足しています。</td><td class="num">${x.total.toFixed(1)}</td></tr>`);
+    rows.push(`<tr class="total"><td>合計</td><td colspan="2">PS・配信・note・表彰の合計を小数第1位で丸め、大会加点、WGP予選、ランクマッチ補正を足しています。</td><td class="num">${x.total.toFixed(1)}</td></tr>`);
 
     const ladderRows = r.ld.length ? r.ld.map(e => `<tr><td>${esc(e[0])}</td><td>${esc(e[1])}</td><td class="num">${e[2]}位</td><td class="num">${e[3]}</td></tr>`).join("") : `<tr><td colspan="4">記録なし</td></tr>`;
     const srcs = [SRC.comp()];

@@ -84,40 +84,105 @@ def extract_object(text, var_name):
     return None
 
 
+def _skip_space_and_comments(src, j):
+    n = len(src)
+    while j < n:
+        if src[j] in " \t\r\n":
+            j += 1
+        elif src.startswith("//", j):
+            k = src.find("\n", j)
+            j = n if k < 0 else k
+        elif src.startswith("/*", j):
+            k = src.find("*/", j + 2)
+            j = n if k < 0 else k + 2
+        else:
+            break
+    return j
+
+
+JSON_ESCAPES = set('"\\/bfnrtu')
+
+
 def js_object_to_json(src):
-    """JS のオブジェクトリテラルを JSON として読めるように直す（まず素のまま試し、だめなら整形する）。"""
+    """JS のオブジェクトリテラルを JSON として読めるように直す（まず素のまま試し、だめなら整形する）。
+
+    文字列の外と中を1文字ずつ区別しながら、次を直す（文字列の中身には手を付けない）:
+      - シングルクォートの文字列をダブルクォートに
+      - JSON に無いエスケープ（\\' や \\x41 など）を JSON で読める形に。
+        2026-11-17 に「FOR\\'E｜rairo」という名前の \\' で読み込みが失敗していた
+      - 引用符の無いキー（{cls:1} の cls）に引用符を付ける
+      - 閉じかっこ直前のカンマを消す、// と /* */ のコメントを消す
+    """
     try:
         return json.loads(src)
     except ValueError:
         pass
-    out, i, quote = [], 0, None
-    # 1文字ずつ見て、シングルクォート文字列をダブルクォートに直す
-    while i < len(src):
+    out, i, n, quote = [], 0, len(src), None
+    while i < n:
         c = src[i]
         if quote:
-            if c == "\\" and i + 1 < len(src):
+            if c == "\\" and i + 1 < n:
                 nxt = src[i + 1]
-                # シングルクォート文字列の中の \' は、ダブルクォートに直した後はただの ' でよい
-                out.append("'" if (nxt == "'" and quote == "'") else c + nxt)
+                if nxt == "'":
+                    out.append("'")                       # \\' は ' でよい
+                elif nxt == '"':
+                    out.append('\\"')
+                elif nxt in JSON_ESCAPES:
+                    out.append(c + nxt)
+                elif nxt == "x" and i + 3 < n:
+                    out.append("\\u00" + src[i + 2:i + 4])
+                    i += 4
+                    continue
+                elif nxt == "0":
+                    out.append("\\u0000")
+                elif nxt in "\r\n":
+                    pass                                   # 行継続
+                else:
+                    out.append(nxt)                        # JS ではそのままの文字になるエスケープ
                 i += 2
                 continue
             if c == quote:
                 out.append('"')
                 quote = None
-            elif c == '"' and quote == "'":
-                out.append('\\"')
+            elif c == '"':
+                out.append('\\"')                          # シングルクォート文字列の中の "
+            elif c in "\r\n":
+                out.append("\\n")
             else:
                 out.append(c)
-        elif c in "\"'":
+            i += 1
+            continue
+        if c in "\"'":
             quote = c
             out.append('"')
+            i += 1
+        elif c == "/" and src.startswith("//", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+        elif c == "/" and src.startswith("/*", i):
+            j = src.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        elif c == ",":
+            j = _skip_space_and_comments(src, i + 1)
+            if j < n and src[j] in "}]":
+                i += 1                                     # 閉じかっこ直前のカンマ
+            else:
+                out.append(c)
+                i += 1
+        elif c.isalpha() or c in "_$":
+            j = i
+            while j < n and (src[j].isalnum() or src[j] in "_$"):
+                j += 1
+            word = src[i:j]
+            k = j
+            while k < n and src[k] in " \t\r\n":
+                k += 1
+            out.append(f'"{word}"' if k < n and src[k] == ":" else word)
+            i = j
         else:
             out.append(c)
-        i += 1
-    fixed = "".join(out)
-    fixed = re.sub(r'([{,]\s*)([A-Za-z_$][\w$]*)\s*:', r'\1"\2":', fixed)  # 引用符なしのキー
-    fixed = re.sub(r",\s*([}\]])", r"\1", fixed)                           # 末尾のカンマ
-    return json.loads(fixed)
+            i += 1
+    return json.loads("".join(out))
 
 
 def build_rows(rank_data):

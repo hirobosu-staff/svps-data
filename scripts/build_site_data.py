@@ -10,9 +10,9 @@ shadowverse-reference.com の期間集計を毎日記録し直した行で、画
 
 作るもの（いずれもリポジトリには入れず、公開用の出力先にだけ置く）:
     timeseries.json    … 選手ごとの Xフォロワー数・YouTube登録者数の日次推移（history.csv から2指標だけ）
-    stream_stats.json  … 選手ごとの配信集計（直近30日・直近90日・取得した全期間）。比較ページが使う
+    stream_stats.json  … 選手ごとの配信集計（直近30日・直近90日・2026年6月〜・全期間）。比較ページが使う
     streams/{channel_id}.json … 選手1人分の配信一覧。選手詳細の配信分析が使う
-    stream_ranking.json … 月ごとの再生数上位の配信（配信ランキングページ streams.html が使う）
+    stream_ranking.json … 2026年6月以降の全配信（配信ランキングページ streams.html が月・チームごとに集計する）
     contribution.json  … 貢献度（scripts/build_contribution.py。contribution.html と選手詳細が使う）
 """
 import csv
@@ -27,8 +27,10 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(REPO_ROOT, "data")
 JST = timezone(timedelta(hours=9))
 TIMESERIES_METRICS = ("followers", "youtube_subscribers")
-STAT_WINDOWS = {"30": 30, "90": 90, "all": None}
-# 配信ランキング（streams.html）: 日本時間の月ごとに、再生数の多い順に RANKING_TOP_N 本。
+# 値が数字なら「直近その日数」、日付文字列なら「その日（日本時間）以降」、None なら全期間。
+# since202606 は選手詳細の配信分析の初期表示（2026年6月〜）と同じ期間（2026-11-18 追加）。
+STAT_WINDOWS = {"30": 30, "90": 90, "since202606": "2026-06-01", "all": None}
+# 配信ランキング（streams.html）: 日本時間の月ごとに、再生数の多い順に RANKING_TOP_N 本（チームごと・チームランキングもページ側で集計）。
 # RANKING_FROM_MONTH より前の月は入れない。初回取得でさかのぼれる本数に上限があり
 # （scrape_streams.py の MAX_PAGES_BACKFILL）、配信の多い選手は2026年1月ごろより前が欠けているため。
 RANKING_FROM_MONTH = "2026-06"
@@ -60,7 +62,10 @@ def build_timeseries(out_dir):
 
 
 def stream_stats(streams, now, days):
-    if days is not None:
+    if isinstance(days, str):
+        since = datetime.fromisoformat(days + "T00:00:00+09:00")
+        streams = [s for s in streams if datetime.fromisoformat(s["start_at"].replace("Z", "+00:00")) >= since]
+    elif days is not None:
         since = now - timedelta(days=days)
         streams = [s for s in streams if datetime.fromisoformat(s["start_at"].replace("Z", "+00:00")) >= since]
     if not streams:
@@ -82,27 +87,18 @@ def stream_stats(streams, now, days):
 
 
 def build_stream_ranking(streams, out_dir, updated):
-    """月ごとの再生数上位。再生数が無い配信（メンバー限定など）は順位に入れず、本数だけ数える。"""
-    months = defaultdict(list)
-    counts = defaultdict(int)
+    """配信ランキング用に、RANKING_FROM_MONTH 以降の配信を全部（メンバー限定など再生数が無いものも含めて）書き出す。
+    月ごとの上位・チームごとの上位・チームランキングはページ側（streams.html）で集計する
+    （2026-11-18 から。それまでは月ごとの上位50本だけを書いていた）。"""
+    keep = ("video_id", "title", "player_name", "team_tag", "start_at", "duration_sec", "view_count", "views_at")
+    rows = []
     for s in streams:
         month = datetime.fromisoformat(s["start_at"].replace("Z", "+00:00")).astimezone(JST).strftime("%Y-%m")
-        if month < RANKING_FROM_MONTH:
-            continue
-        counts[month] += 1
-        if s.get("view_count") is not None:
-            months[month].append(s)
-    keep = ("video_id", "title", "player_name", "team_tag", "start_at", "duration_sec", "view_count", "views_at")
-    out = {}
-    for month in sorted(counts, reverse=True):
-        items = sorted(months[month], key=lambda s: (-s["view_count"], s["start_at"]))
-        out[month] = {
-            "count": counts[month],
-            "with_views": len(items),
-            "top": [{k: s.get(k) for k in keep} for s in items[:RANKING_TOP_N]],
-        }
+        if month >= RANKING_FROM_MONTH:
+            rows.append({k: s.get(k) for k in keep})
+    rows.sort(key=lambda s: s["start_at"], reverse=True)
     write_json(os.path.join(out_dir, "stream_ranking.json"), {
-        "updated": updated, "top_n": RANKING_TOP_N, "from_month": RANKING_FROM_MONTH, "months": out,
+        "updated": updated, "top_n": RANKING_TOP_N, "from_month": RANKING_FROM_MONTH, "streams": rows,
     })
 
 

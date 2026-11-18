@@ -405,6 +405,16 @@ a.stream-rank__title:hover { color: var(--accent); }
 .stream-rank__at { font-size: 12px; color: var(--text-muted); }
 .stream-rank__note { margin-top: 12px; max-width: 760px; }
 .stream-rank__sp { display: none; }
+.stream-rank__h { font-size: 18px; margin: 24px 0 10px; }
+.stream-rank__sub { font-size: 14px; margin: 16px 0 8px; }
+.stream-rank__summary { margin: 14px 0 8px; }
+table.rank-table.stream-team th.num, table.rank-table.stream-team td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.rank-table.stream-team tr.is-selected td { background: var(--accent-soft); }
+.stream-team__pick { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.stream-team__pick:hover { color: var(--accent); }
+.stream-team__best { font-size: 12px; color: var(--text-muted); }
+.stream-team__member { white-space: nowrap; }
+.stream-team__best a { color: inherit; }
 
 /* contribution.html と player.html「貢献度」（contribution.js）。
    グラフの色・寸法は contribution.js の SVG 側で持っているので、ここは枠と表だけ */
@@ -591,6 +601,8 @@ table.rank-table.contrib-ladder { max-width: 560px; }
   table.rank-table.stream-rank th:nth-child(5), table.rank-table.stream-rank td.stream-rank__at { display: none; }
   div.stream-rank__sp { display: block; margin-bottom: 2px; font-size: 12px; }
   span.stream-rank__sp { display: inline; }
+  /* チームランキング・選手別は、最も再生された選手・配信の列をスマホでは隠す */
+  table.rank-table.stream-team .stream-team__best { display: none; }
   .chart-box { overflow-x: auto; }
   .chart-box table.rank-table th,
   .chart-box table.rank-table td { white-space: nowrap; }

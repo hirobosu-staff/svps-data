@@ -136,7 +136,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `data/schedule.csv` | シーズン日程 56行 / 14節 | 自動 |
 | `data/svlabo_leaderboards.csv` | ランクマッチCRランキング（svlabo の rank_YYMMDD.js〔BOM付きUTF-16〕の tmpRanks から毎日まるごと作り直し） | 自動 |
 | `data/streams.json` | YouTube ライブアーカイブ1本ごと（タイトル・開始/終了・配信時間・再生数）。1配信1行のJSON | 自動 |
-| `data/uploads.json` | YouTube の投稿動画（ライブ・プレミア以外、レギュラーシーズン開始日以降）の再生数。`scrape_uploads.py` が毎日取り直す。貢献度の「投稿動画」に使う | 自動（2026-11-17〜） |
+| `data/uploads.json` | YouTube の投稿動画（ライブ・プレミア以外、レギュラーシーズン開始日以降）の再生数と `is_short`（180秒以下かつ縦長）。`scrape_uploads.py` が毎日取り直す。貢献度の「投稿動画」と「ショート」に使う | 自動（2026-11-17〜） |
 | `data/contribution_manual.json` | 貢献度の手入力分（配点・表彰・大会・note・WGP予選・Twitch推計・svlabo上の別表記） | 手入力（Claude が依頼を受けて書く） |
 
 ### ページ構成（`site/`）
@@ -148,7 +148,7 @@ Chrome のウィンドウリサイズでは viewport が変わらず確認にな
 | `team.html` | **チーム戦績**。チームごとに14節を1行ずつ並べ、行を開くとバトル内訳（アコーディオン）。下に選手別・使用クラス別・先攻/後攻。`?team=` |
 | `players.html` | **選手一覧**。チームチップで絞り込み + 検索。`?team=` `?q=` 対応 |
 | `player.html` | 選手個別（折れ線グラフ + 貢献度 + 配信分析）。貢献度欄は `contribution.js` の `renderPlayer()`。`?name=`。グラフの初期表示は X フォロワー数。配信分析は `stream-analysis.js`（期間の初期表示は「2026年6月〜」） |
-| `streams.html` | **配信ランキング**（ナビは選手一覧の右）。月ごとの再生数上位50本。`?month=YYYY-MM`。`stream_ranking.json` を読む（無ければ streams.json から計算）。対象月は2026年6月以降（`build_site_data.py` の `RANKING_FROM_MONTH`。それより前は配信の多い選手の取得が欠けている） |
+| `streams.html` | **配信ランキング**（ナビは選手一覧の右）。月ごとのチームランキング・チーム内の選手別・再生数上位50本（全体またはチーム内）。`?month=YYYY-MM|all&team=`。`stream_ranking.json`（2026年6月以降の全配信）を読み、集計はページ側（無ければ streams.json から）。対象月は2026年6月以降（`build_site_data.py` の `RANKING_FROM_MONTH`。それより前は配信の多い選手の取得が欠けている） |
 | `rounds.html` | 通算成績 |
 | `sections.html` | 節別結果（**最新の節がデフォルト選択**） |
 | `compare.html` | 比較表。`<body class="wide">` で横幅 1560px |
