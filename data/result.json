@@ -3,10 +3,10 @@
   "teams": [
     {
       "id": 1,
-      "win": 6,
+      "win": 7,
       "lose": 4,
-      "diff": 6,
-      "battlepoint": 25
+      "diff": 7,
+      "battlepoint": 28
     },
     {
       "id": 2,
@@ -32,16 +32,16 @@
     {
       "id": 5,
       "win": 6,
-      "lose": 4,
-      "diff": 6,
-      "battlepoint": 25
+      "lose": 5,
+      "diff": 5,
+      "battlepoint": 27
     },
     {
       "id": 6,
       "win": 3,
-      "lose": 7,
-      "diff": -4,
-      "battlepoint": 20
+      "lose": 8,
+      "diff": -5,
+      "battlepoint": 22
     },
     {
       "id": 7,
@@ -52,10 +52,10 @@
     },
     {
       "id": 8,
-      "win": 5,
+      "win": 6,
       "lose": 5,
-      "diff": 0,
-      "battlepoint": 22
+      "diff": 1,
+      "battlepoint": 25
     }
   ],
   "confirmed_odds": null
